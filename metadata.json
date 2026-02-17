@@ -1,0 +1,5 @@
+{
+  "name": "VeloCheck - Entretien VTT Intelligent",
+  "description": "Un carnet d'entretien intelligent pour VTT qui analyse les fichiers GPX pour surveiller l'usure des composants et fournir des alertes de maintenance proactives.",
+  "requestFramePermissions": []
+}
