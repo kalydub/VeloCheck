@@ -16,11 +16,21 @@ export interface RideData {
   elevationGain: number;
 }
 
-export interface AppState {
+export interface BikeProfile {
+  id: string;
+  name: string;
+  brand: string;
+  model: string;
+  image?: string; // base64 string
   components: ComponentStatus[];
   rides: RideData[];
   totalDistance: number;
   totalElevation: number;
+}
+
+export interface AppState {
+  bikes: BikeProfile[];
+  activeBikeId: string | null;
 }
 
 export interface GpxAnalysisResult {
