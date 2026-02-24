@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Bike, Upload, BarChart3, Settings2, Sparkles, Plus, Trash2, 
-  ChevronRight, RefreshCcw, AlertTriangle, X, Check, Camera, 
-  ArrowLeft, LayoutGrid 
+import {
+  Bike, Upload, BarChart3, Settings2, Sparkles, Plus, Trash2,
+  ChevronRight, RefreshCcw, AlertTriangle, X, Check, Camera,
+  ArrowLeft, LayoutGrid
 } from 'lucide-react';
 import { AppState, BikeProfile, ComponentStatus, GpxAnalysisResult } from './types';
 import { DEFAULT_COMPONENTS } from './constants';
@@ -13,8 +13,15 @@ import { getMaintenanceAdvice } from './services/geminiService';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(() => {
-    const saved = localStorage.getItem('velocheck_v2_state');
-    if (saved) return JSON.parse(saved);
+    try {
+      const saved = localStorage.getItem('velocheck_v2_state');
+      if (saved) {
+        console.log("State loaded from localStorage");
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Error loading state from localStorage:", e);
+    }
     return {
       bikes: [],
       activeBikeId: null
@@ -29,7 +36,7 @@ const App: React.FC = () => {
   // Formulaire nouveau vélo
   const [isAddingBike, setIsAddingBike] = useState(false);
   const [newBikeData, setNewBikeData] = useState({ name: '', brand: '', model: '', image: '' });
-  
+
   // Formulaire nouveau composant
   const [isAddingComponent, setIsAddingComponent] = useState(false);
   const [newCompName, setNewCompName] = useState('');
@@ -96,7 +103,7 @@ const App: React.FC = () => {
   const resetComponent = (id: string) => {
     updateActiveBike(bike => ({
       ...bike,
-      components: bike.components.map(c => 
+      components: bike.components.map(c =>
         c.id === id ? { ...c, currentKm: 0, lastServiceDate: new Date().toISOString() } : c
       )
     }));
@@ -105,7 +112,7 @@ const App: React.FC = () => {
   const updateThreshold = (id: string, newThreshold: number) => {
     updateActiveBike(bike => ({
       ...bike,
-      components: bike.components.map(c => 
+      components: bike.components.map(c =>
         c.id === id ? { ...c, thresholdKm: newThreshold } : c
       )
     }));
@@ -192,6 +199,7 @@ const App: React.FC = () => {
     if (state.bikes.length === 0) setActiveTab('garage');
   }, [state.bikes.length]);
 
+
   return (
     <div className="min-h-screen pb-20 md:pb-0 text-slate-50 bg-[#0f172a]">
       {/* Sidebar Navigation */}
@@ -202,33 +210,33 @@ const App: React.FC = () => {
           </div>
           <h1 className="text-xl font-bold tracking-tight">VeloCheck</h1>
         </div>
-        
+
         <div className="flex md:flex-col justify-around md:justify-start p-2 md:p-4 gap-2">
-          <button 
+          <button
             onClick={() => setActiveTab('garage')}
             className={`flex items-center gap-3 p-3 rounded-lg transition-colors w-full ${activeTab === 'garage' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-400 hover:bg-slate-800'}`}
           >
             <LayoutGrid className="w-5 h-5" />
             <span className="hidden md:block font-medium">Mon Garage</span>
           </button>
-          
+
           {activeBike && (
             <>
-              <button 
+              <button
                 onClick={() => setActiveTab('dashboard')}
                 className={`flex items-center gap-3 p-3 rounded-lg transition-colors w-full ${activeTab === 'dashboard' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-400 hover:bg-slate-800'}`}
               >
                 <BarChart3 className="w-5 h-5" />
                 <span className="hidden md:block font-medium">Tableau de bord</span>
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('history')}
                 className={`flex items-center gap-3 p-3 rounded-lg transition-colors w-full ${activeTab === 'history' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-400 hover:bg-slate-800'}`}
               >
                 <Plus className="w-5 h-5" />
                 <span className="hidden md:block font-medium">Activités</span>
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('settings')}
                 className={`flex items-center gap-3 p-3 rounded-lg transition-colors w-full ${activeTab === 'settings' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-400 hover:bg-slate-800'}`}
               >
@@ -242,17 +250,17 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="md:ml-64 p-6 md:p-10 max-w-7xl mx-auto">
-        
+
         {/* TAB: GARAGE */}
         {activeTab === 'garage' && (
-          <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="space-y-8 duration-500">
             <header className="flex justify-between items-center">
               <div>
                 <h2 className="text-3xl font-extrabold text-white">Mon Garage</h2>
                 <p className="text-slate-400">Gérez vos différents vélos et profils d'entretien.</p>
               </div>
               {!isAddingBike && (
-                <button 
+                <button
                   onClick={() => setIsAddingBike(true)}
                   className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all"
                 >
@@ -262,20 +270,20 @@ const App: React.FC = () => {
             </header>
 
             {isAddingBike && (
-              <section className="bg-slate-800 border border-indigo-500/30 rounded-3xl p-8 animate-in zoom-in-95 duration-300">
+              <section className="bg-slate-800 border border-indigo-500/30 rounded-3xl p-8 duration-300">
                 <div className="flex justify-between items-center mb-8">
                   <h3 className="text-xl font-bold flex items-center gap-2"><Plus className="text-indigo-400" /> Nouveau Profil Vélo</h3>
                   <button onClick={() => setIsAddingBike(false)} className="text-slate-400 hover:text-white"><X /></button>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-slate-400 mb-2">Nom du vélo (ex: Mon Enduro)</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={newBikeData.name}
-                        onChange={e => setNewBikeData(prev => ({...prev, name: e.target.value}))}
+                        onChange={e => setNewBikeData(prev => ({ ...prev, name: e.target.value }))}
                         className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
                         placeholder="Saisissez un nom..."
                       />
@@ -283,26 +291,26 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-400 mb-2">Marque</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={newBikeData.brand}
-                          onChange={e => setNewBikeData(prev => ({...prev, brand: e.target.value}))}
+                          onChange={e => setNewBikeData(prev => ({ ...prev, brand: e.target.value }))}
                           className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
                           placeholder="Specialized, Trek..."
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-400 mb-2">Modèle</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={newBikeData.model}
-                          onChange={e => setNewBikeData(prev => ({...prev, model: e.target.value}))}
+                          onChange={e => setNewBikeData(prev => ({ ...prev, model: e.target.value }))}
                           className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
                           placeholder="Stumpjumper, Fuel..."
                         />
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={createBike}
                       disabled={!newBikeData.name}
                       className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
@@ -315,8 +323,8 @@ const App: React.FC = () => {
                     {newBikeData.image ? (
                       <>
                         <img src={newBikeData.image} alt="Preview" className="w-full h-full object-cover absolute inset-0 opacity-50" />
-                        <button 
-                          onClick={() => setNewBikeData(prev => ({...prev, image: ''}))}
+                        <button
+                          onClick={() => setNewBikeData(prev => ({ ...prev, image: '' }))}
                           className="absolute top-4 right-4 bg-red-500 p-2 rounded-full z-10"
                         >
                           <X className="w-4 h-4" />
@@ -337,20 +345,20 @@ const App: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {state.bikes.map(bike => (
-                <div 
+                <div
                   key={bike.id}
-                  onClick={() => { setState(prev => ({...prev, activeBikeId: bike.id})); setActiveTab('dashboard'); }}
+                  onClick={() => { setState(prev => ({ ...prev, activeBikeId: bike.id })); setActiveTab('dashboard'); }}
                   className={`relative overflow-hidden group rounded-3xl border-2 transition-all cursor-pointer h-72 ${state.activeBikeId === bike.id ? 'border-indigo-500 ring-4 ring-indigo-500/20 shadow-2xl scale-[1.02]' : 'border-slate-800 hover:border-slate-600'}`}
                 >
                   {bike.image ? (
                     <img src={bike.image} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={bike.name} />
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
-                       <Bike className="w-20 h-20 text-slate-700" />
+                      <Bike className="w-20 h-20 text-slate-700" />
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent"></div>
-                  
+
                   <div className="absolute bottom-0 left-0 right-0 p-6">
                     <div className="flex justify-between items-end">
                       <div>
@@ -361,7 +369,7 @@ const App: React.FC = () => {
                           <span className="bg-white/10 px-2 py-1 rounded-md">{bike.rides.length} sorties</span>
                         </div>
                       </div>
-                      <button 
+                      <button
                         onClick={(e) => deleteBike(bike.id, e)}
                         className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
                       >
@@ -369,7 +377,7 @@ const App: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  
+
                   {state.activeBikeId === bike.id && (
                     <div className="absolute top-4 right-4 bg-indigo-500 text-white p-1.5 rounded-full shadow-lg">
                       <Check className="w-4 h-4" />
@@ -383,7 +391,7 @@ const App: React.FC = () => {
 
         {/* PROFIL ACTIF : DASHBOARD, HISTORY, SETTINGS */}
         {activeBike && activeTab !== 'garage' && (
-          <div className="space-y-10 animate-in slide-in-from-right-10 duration-500">
+          <div className="space-y-10 duration-500">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-800/40 p-6 rounded-3xl border border-slate-700">
               <div className="flex items-center gap-5">
                 <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-indigo-500/30 flex-shrink-0 bg-slate-900">
@@ -395,9 +403,9 @@ const App: React.FC = () => {
                 </div>
               </div>
               <div className="flex gap-4">
-                 <button onClick={() => setActiveTab('garage')} className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors">
-                    <ArrowLeft className="w-4 h-4" /> Changer de vélo
-                 </button>
+                <button onClick={() => setActiveTab('garage')} className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors">
+                  <ArrowLeft className="w-4 h-4" /> Changer de vélo
+                </button>
               </div>
             </header>
 
@@ -475,15 +483,15 @@ const App: React.FC = () => {
 
             {activeTab === 'history' && (
               <div className="space-y-10">
-                 <section className="bg-slate-800/40 p-10 rounded-3xl border-2 border-dashed border-slate-700 text-center group hover:border-indigo-500/50 transition-colors">
-                    <input type="file" id="gpx-upload" className="hidden" multiple accept=".gpx" onChange={handleFileUpload} disabled={isUploading} />
-                    <label htmlFor="gpx-upload" className="cursor-pointer flex flex-col items-center">
-                      <div className={`p-6 rounded-2xl mb-4 transition-all ${isUploading ? 'bg-indigo-600/50 animate-pulse' : 'bg-slate-700 group-hover:bg-indigo-600'}`}>
-                        <Upload className="w-10 h-10 text-white" />
-                      </div>
-                      <h3 className="text-xl font-bold text-slate-100 mb-2">{isUploading ? 'Analyse...' : 'Importer des sorties GPX'}</h3>
-                      <p className="text-slate-400 max-w-sm">Les sorties seront assignées à : <span className="text-indigo-400 font-bold">{activeBike.name}</span></p>
-                    </label>
+                <section className="bg-slate-800/40 p-10 rounded-3xl border-2 border-dashed border-slate-700 text-center group hover:border-indigo-500/50 transition-colors">
+                  <input type="file" id="gpx-upload" className="hidden" multiple accept=".gpx" onChange={handleFileUpload} disabled={isUploading} />
+                  <label htmlFor="gpx-upload" className="cursor-pointer flex flex-col items-center">
+                    <div className={`p-6 rounded-2xl mb-4 transition-all ${isUploading ? 'bg-indigo-600/50 animate-pulse' : 'bg-slate-700 group-hover:bg-indigo-600'}`}>
+                      <Upload className="w-10 h-10 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-100 mb-2">{isUploading ? 'Analyse...' : 'Importer des sorties GPX'}</h3>
+                    <p className="text-slate-400 max-w-sm">Les sorties seront assignées à : <span className="text-indigo-400 font-bold">{activeBike.name}</span></p>
+                  </label>
                 </section>
                 <section>
                   <h2 className="text-2xl font-bold text-slate-100 mb-6">Activité de ce vélo</h2>
@@ -526,7 +534,7 @@ const App: React.FC = () => {
                 </header>
 
                 {isAddingComponent && (
-                  <div className="bg-slate-800 border border-indigo-500/30 p-6 rounded-2xl animate-in zoom-in-95">
+                  <div className="bg-slate-800 border border-indigo-500/30 p-6 rounded-2xl">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <input type="text" value={newCompName} onChange={e => setNewCompName(e.target.value)} placeholder="Nom (ex: Chaîne...)" className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2" />
                       <select value={newCompCategory} onChange={e => setNewCompCategory(e.target.value as any)} className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2">
@@ -568,13 +576,13 @@ const App: React.FC = () => {
 
       {/* Floating Action Button for Mobile */}
       <div className="md:hidden fixed bottom-24 right-6 z-40">
-        <button 
+        <button
           onClick={() => {
             if (activeBike) {
-                setActiveTab('history'); 
-                document.getElementById('gpx-upload')?.click();
+              setActiveTab('history');
+              document.getElementById('gpx-upload')?.click();
             } else {
-                setIsAddingBike(true);
+              setIsAddingBike(true);
             }
           }}
           className="bg-indigo-600 p-4 rounded-2xl shadow-xl shadow-indigo-600/40 text-white"
@@ -582,7 +590,7 @@ const App: React.FC = () => {
           <Plus className="w-8 h-8" />
         </button>
       </div>
-    </div>
+    </div >
   );
 };
 
