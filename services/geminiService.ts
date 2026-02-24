@@ -4,10 +4,19 @@ import { BikeProfile } from "../types";
 
 // Obtain maintenance advice from Gemini based on the specific bike profile data
 export async function getMaintenanceAdvice(bike: BikeProfile) {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
+  const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY;
+
+  if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+    return {
+      tips: ["Clé API manquante ou invalide.", "Veuillez configurer la clé API dans le fichier .env."],
+      summary: "Erreur de configuration de l'IA."
+    };
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
   // Accessing bike properties instead of app state
-  const componentSummary = bike.components.map(c => 
+  const componentSummary = bike.components.map(c =>
     `${c.name}: ${c.currentKm.toFixed(1)}km / seuil de ${c.thresholdKm}km`
   ).join('\n');
 
