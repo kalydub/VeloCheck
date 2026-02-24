@@ -825,6 +825,16 @@ const App: React.FC = () => {
                       </h3>
                     </div>
 
+                    <div className="mb-4">
+                      <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 tracking-wider">Nom de la sortie</label>
+                      <input
+                        type="text"
+                        value={manualRideData.name}
+                        onChange={e => setManualRideData(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                        placeholder="Sortie du soir, Entraînement..."
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
                         <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 tracking-wider">Distance (km)</label>
