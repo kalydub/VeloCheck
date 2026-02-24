@@ -590,7 +590,12 @@ const App: React.FC = () => {
           <Plus className="w-8 h-8" />
         </button>
       </div>
-    </div >
+
+      {/* Copyright Footer */}
+      <footer className="md:ml-64 py-8 border-t border-slate-800 text-center text-slate-500 text-sm">
+        <p>© {new Date().getFullYear()} VeloCheck - développé par Florian F.</p>
+      </footer>
+    </div>
   );
 };
 
