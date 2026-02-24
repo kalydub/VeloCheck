@@ -1,11 +1,21 @@
 
+export interface ServiceHistoryEntry {
+  date: string;
+  kmAtService: number;
+  price?: number;
+  note?: string;
+}
+
 export interface ComponentStatus {
   id: string;
   name: string;
+  partReference?: string;
   currentKm: number;
   thresholdKm: number;
   lastServiceDate: string;
+  lastSafetyCheckDate?: string;
   category: 'drivetrain' | 'suspension' | 'tires' | 'brakes';
+  serviceHistory: ServiceHistoryEntry[];
 }
 
 export interface RideData {
@@ -14,6 +24,7 @@ export interface RideData {
   date: string;
   distance: number;
   elevationGain: number;
+  coordinates?: [number, number][]; // [lat, lng] array
 }
 
 export interface BikeProfile {
@@ -21,6 +32,7 @@ export interface BikeProfile {
   name: string;
   brand: string;
   model: string;
+  purchasePrice: number;
   image?: string; // base64 string
   components: ComponentStatus[];
   rides: RideData[];
@@ -38,4 +50,5 @@ export interface GpxAnalysisResult {
   elevationGain: number;
   name: string;
   startTime: string;
+  coordinates: [number, number][];
 }

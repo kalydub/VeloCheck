@@ -25,6 +25,7 @@ export async function parseGpxFile(file: File): Promise<GpxAnalysisResult> {
   let totalDistance = 0;
   let elevationGain = 0;
   let lastEle: number | null = null;
+  const coordinates: [number, number][] = [];
 
   for (let i = 0; i < trkpts.length; i++) {
     const pt = trkpts[i];
@@ -32,6 +33,11 @@ export async function parseGpxFile(file: File): Promise<GpxAnalysisResult> {
     const lon = parseFloat(pt.getAttribute("lon") || "0");
     const eleNode = pt.getElementsByTagName("ele")[0];
     const ele = eleNode ? parseFloat(eleNode.textContent || "0") : null;
+
+    // Store coordinate (simplify if track is huge)
+    if (trkpts.length < 2000 || i % 2 === 0) {
+      coordinates.push([lat, lon]);
+    }
 
     if (i > 0) {
       const prevPt = trkpts[i - 1];
@@ -51,7 +57,7 @@ export async function parseGpxFile(file: File): Promise<GpxAnalysisResult> {
 
   const nameNode = xmlDoc.getElementsByTagName("name")[0];
   const name = nameNode ? nameNode.textContent || file.name : file.name;
-  
+
   const timeNode = xmlDoc.getElementsByTagName("time")[0];
   const startTime = timeNode ? timeNode.textContent || new Date().toISOString() : new Date().toISOString();
 
@@ -59,6 +65,7 @@ export async function parseGpxFile(file: File): Promise<GpxAnalysisResult> {
     distance: totalDistance,
     elevationGain: elevationGain,
     name: name,
-    startTime: startTime
+    startTime: startTime,
+    coordinates: coordinates
   };
 }

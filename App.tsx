@@ -3,39 +3,39 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Bike, Upload, BarChart3, Settings2, Sparkles, Plus, Trash2,
   ChevronRight, RefreshCcw, AlertTriangle, X, Check, Camera,
-  ArrowLeft, LayoutGrid
+  ArrowLeft, LayoutGrid, Download, FileDown, Save, Map as MapIcon
 } from 'lucide-react';
-import { AppState, BikeProfile, ComponentStatus, GpxAnalysisResult } from './types';
+import { AppState, BikeProfile, ComponentStatus, GpxAnalysisResult, RideData } from './types';
 import { DEFAULT_COMPONENTS } from './constants';
 import { parseGpxFile } from './utils/gpxParser';
 import ComponentCard from './components/ComponentCard';
 import { getMaintenanceAdvice } from './services/geminiService';
+import StatsView from './components/StatsView';
+import RideMap from './components/RideMap';
+import GlobalActivityMap from './components/GlobalActivityMap';
+import { db } from './db';
 
 const App: React.FC = () => {
-  const [state, setState] = useState<AppState>(() => {
-    try {
-      const saved = localStorage.getItem('velocheck_v2_state');
-      if (saved) {
-        console.log("State loaded from localStorage");
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.error("Error loading state from localStorage:", e);
-    }
-    return {
-      bikes: [],
-      activeBikeId: null
-    };
+  const [state, setState] = useState<AppState>({
+    bikes: [],
+    activeBikeId: null
   });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'settings' | 'garage'>('garage');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'settings' | 'garage' | 'stats'>('garage');
   const [isUploading, setIsUploading] = useState(false);
+  const [editingRideId, setEditingRideId] = useState<string | null>(null);
+  const [editingRideNameId, setEditingRideNameId] = useState<string | null>(null);
+  const [selectedRideForMap, setSelectedRideForMap] = useState<RideData | null>(null);
+  const [showGlobalMap, setShowGlobalMap] = useState(false);
   const [advice, setAdvice] = useState<{ tips: string[], summary: string } | null>(null);
   const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
 
   // Formulaire nouveau vélo
   const [isAddingBike, setIsAddingBike] = useState(false);
-  const [newBikeData, setNewBikeData] = useState({ name: '', brand: '', model: '', image: '' });
+  const [isEditingBike, setIsEditingBike] = useState(false);
+  const [newBikeData, setNewBikeData] = useState({ name: '', brand: '', model: '', purchasePrice: 0, image: '' });
+  const [editBikeData, setEditBikeData] = useState({ name: '', brand: '', model: '', purchasePrice: 0, image: '' });
 
   // Formulaire nouveau composant
   const [isAddingComponent, setIsAddingComponent] = useState(false);
@@ -43,12 +43,71 @@ const App: React.FC = () => {
   const [newCompThreshold, setNewCompThreshold] = useState(1000);
   const [newCompCategory, setNewCompCategory] = useState<ComponentStatus['category']>('drivetrain');
 
+  // Formulaire nouvelle sortie manuelle
+  const [isAddingManualRide, setIsAddingManualRide] = useState(false);
+  const [manualRideData, setManualRideData] = useState({
+    name: '',
+    date: new Date().toISOString().split('T')[0],
+    distance: 0,
+    elevation: 0
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Persistence
+  // Persistence & Migration
   useEffect(() => {
-    localStorage.setItem('velocheck_v2_state', JSON.stringify(state));
-  }, [state]);
+    const loadData = async () => {
+      try {
+        const bikes = await db.bikes.toArray();
+        const activeBikeIdConfig = await db.config.get('activeBikeId');
+
+        if (bikes.length > 0) {
+          setState({
+            bikes,
+            activeBikeId: activeBikeIdConfig?.value || bikes[0].id
+          });
+        } else {
+          // Migration from LocalStorage
+          const saved = localStorage.getItem('velocheck_v2_state');
+          if (saved) {
+            const legacyState = JSON.parse(saved);
+            if (legacyState.bikes && legacyState.bikes.length > 0) {
+              await db.bikes.bulkAdd(legacyState.bikes);
+              if (legacyState.activeBikeId) {
+                await db.config.put({ key: 'activeBikeId', value: legacyState.activeBikeId });
+              }
+              setState(legacyState);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Erreur lors du chargement des données IndexedDB:", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const saveData = async () => {
+      try {
+        // Option simple : on écrase pour synchroniser l'état
+        // Pour une performance maximale sur des milliers de vélos, 
+        // on pourrait ne mettre à jour que le vélo modifié.
+        await db.transaction('rw', db.bikes, db.config, async () => {
+          await db.bikes.clear();
+          await db.bikes.bulkAdd(state.bikes);
+          await db.config.put({ key: 'activeBikeId', value: state.activeBikeId });
+        });
+      } catch (e) {
+        console.error("Erreur lors de la sauvegarde IndexedDB:", e);
+      }
+    };
+    saveData();
+  }, [state, isLoading]);
 
   const activeBike = state.bikes.find(b => b.id === state.activeBikeId);
 
@@ -77,7 +136,8 @@ const App: React.FC = () => {
           name: analysis.name,
           date: analysis.startTime,
           distance: analysis.distance,
-          elevationGain: analysis.elevationGain
+          elevationGain: analysis.elevationGain,
+          coordinates: analysis.coordinates
         });
         addedDistance += analysis.distance;
         addedElevation += analysis.elevationGain;
@@ -100,12 +160,101 @@ const App: React.FC = () => {
     }
   };
 
-  const resetComponent = (id: string) => {
+  const handleManualRide = () => {
+    if (!activeBike || manualRideData.distance <= 0) return;
+
+    const newRide: RideData = {
+      id: crypto.randomUUID(),
+      name: manualRideData.name || 'Sortie manuelle',
+      date: new Date(manualRideData.date).toISOString(),
+      distance: manualRideData.distance,
+      elevationGain: manualRideData.elevation
+    };
+
+    updateActiveBike(bike => ({
+      ...bike,
+      rides: [newRide, ...bike.rides],
+      totalDistance: bike.totalDistance + manualRideData.distance,
+      totalElevation: bike.totalElevation + manualRideData.elevation,
+      components: bike.components.map(c => ({
+        ...c,
+        currentKm: c.currentKm + manualRideData.distance
+      }))
+    }));
+
+    setIsAddingManualRide(false);
+    setManualRideData({
+      name: '',
+      date: new Date().toISOString().split('T')[0],
+      distance: 0,
+      elevation: 0
+    });
+  };
+
+  const deleteRide = (rideId: string) => {
+    if (!activeBike || !confirm("Supprimer cette sortie ?")) return;
+
+    const rideToDelete = activeBike.rides.find(r => r.id === rideId);
+    if (!rideToDelete) return;
+
+    updateActiveBike(bike => ({
+      ...bike,
+      rides: bike.rides.filter(r => r.id !== rideId),
+      totalDistance: Math.max(0, bike.totalDistance - rideToDelete.distance),
+      totalElevation: Math.max(0, bike.totalElevation - rideToDelete.elevationGain),
+      components: bike.components.map(c => ({
+        ...c,
+        currentKm: Math.max(0, c.currentKm - rideToDelete.distance)
+      }))
+    }));
+  };
+
+  const updateRideDate = (rideId: string, newDate: string) => {
+    updateActiveBike(bike => ({
+      ...bike,
+      rides: bike.rides.map(r => r.id === rideId ? { ...r, date: new Date(newDate).toISOString() } : r)
+    }));
+  };
+
+  const updateRideName = (rideId: string, newName: string) => {
+    if (!newName.trim()) return;
+    updateActiveBike(bike => ({
+      ...bike,
+      rides: bike.rides.map(r => r.id === rideId ? { ...r, name: newName } : r)
+    }));
+  };
+
+  const resetComponent = (id: string, price?: number, note?: string) => {
     updateActiveBike(bike => ({
       ...bike,
       components: bike.components.map(c =>
-        c.id === id ? { ...c, currentKm: 0, lastServiceDate: new Date().toISOString() } : c
+        c.id === id ? {
+          ...c,
+          currentKm: 0,
+          lastServiceDate: new Date().toISOString(),
+          lastSafetyCheckDate: new Date().toISOString(),
+          serviceHistory: [
+            {
+              date: new Date().toISOString(),
+              kmAtService: c.currentKm,
+              price: price,
+              note: note
+            },
+            ...(c.serviceHistory || [])
+          ]
+        } : c
       )
+    }));
+  };
+
+  const performSafetyCheck = () => {
+    if (!confirm("Confirmer que vous avez effectué les vérifications de sécurité (serrages, pressions, câbles) ?")) return;
+    updateActiveBike(bike => ({
+      ...bike,
+      components: bike.components.map(c => ({
+        ...c,
+        lastSafetyCheckDate: new Date().toISOString()
+      }))
     }));
   };
 
@@ -118,6 +267,15 @@ const App: React.FC = () => {
     }));
   };
 
+  const updateReference = (id: string, reference: string) => {
+    updateActiveBike(bike => ({
+      ...bike,
+      components: bike.components.map(c =>
+        c.id === id ? { ...c, partReference: reference } : c
+      )
+    }));
+  };
+
   const addComponent = () => {
     if (!newCompName.trim() || !activeBike) return;
     const newComponent: ComponentStatus = {
@@ -126,7 +284,8 @@ const App: React.FC = () => {
       currentKm: 0,
       thresholdKm: newCompThreshold,
       lastServiceDate: new Date().toISOString(),
-      category: newCompCategory
+      category: newCompCategory,
+      serviceHistory: []
     };
     updateActiveBike(bike => ({ ...bike, components: [...bike.components, newComponent] }));
     setNewCompName('');
@@ -146,6 +305,7 @@ const App: React.FC = () => {
       name: newBikeData.name,
       brand: newBikeData.brand,
       model: newBikeData.model,
+      purchasePrice: newBikeData.purchasePrice,
       image: newBikeData.image,
       components: [...DEFAULT_COMPONENTS],
       rides: [],
@@ -156,9 +316,34 @@ const App: React.FC = () => {
       bikes: [...prev.bikes, newBike],
       activeBikeId: prev.activeBikeId || newBike.id
     }));
-    setNewBikeData({ name: '', brand: '', model: '', image: '' });
+    setNewBikeData({ name: '', brand: '', model: '', purchasePrice: 0, image: '' });
     setIsAddingBike(false);
     if (!state.activeBikeId) setActiveTab('dashboard');
+  };
+
+  const startEditingBike = () => {
+    if (!activeBike) return;
+    setEditBikeData({
+      name: activeBike.name,
+      brand: activeBike.brand,
+      model: activeBike.model,
+      purchasePrice: activeBike.purchasePrice || 0,
+      image: activeBike.image || ''
+    });
+    setIsEditingBike(true);
+  };
+
+  const saveBikeEdit = () => {
+    if (!editBikeData.name.trim()) return;
+    updateActiveBike(bike => ({
+      ...bike,
+      name: editBikeData.name,
+      brand: editBikeData.brand,
+      model: editBikeData.model,
+      purchasePrice: editBikeData.purchasePrice,
+      image: editBikeData.image
+    }));
+    setIsEditingBike(false);
   };
 
   const deleteBike = (id: string, e: React.MouseEvent) => {
@@ -185,6 +370,53 @@ const App: React.FC = () => {
     }
   };
 
+  const handleEditImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditBikeData(prev => ({ ...prev, image: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const exportData = () => {
+    const dataStr = JSON.stringify(state, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `velocheck_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const importData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm("Importer ces données ? Cela remplacera votre configuration actuelle.")) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.bikes && Array.isArray(json.bikes)) {
+          setState(json);
+          alert("Données importées avec succès !");
+        } else {
+          alert("Format de fichier invalide.");
+        }
+      } catch (error) {
+        alert("Erreur lors de la lecture du fichier.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const fetchAdvice = async () => {
     if (!activeBike) return;
     setIsLoadingAdvice(true);
@@ -200,8 +432,19 @@ const App: React.FC = () => {
   }, [state.bikes.length]);
 
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center">
+        <div className="bg-indigo-600/20 p-6 rounded-3xl mb-4">
+          <Bike className="w-12 h-12 text-indigo-500 animate-bounce" />
+        </div>
+        <p className="text-slate-400 font-medium animate-pulse">Chargement de votre garage haute performance...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen pb-20 md:pb-0 text-slate-50 bg-[#0f172a]">
+    <div className="min-h-screen bg-slate-950 text-slate-200">
       {/* Sidebar Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 md:top-0 md:left-0 md:bottom-0 md:w-64 bg-slate-900 border-t md:border-r border-slate-800 z-50">
         <div className="hidden md:flex p-6 items-center gap-3 border-b border-slate-800 mb-6">
@@ -237,6 +480,13 @@ const App: React.FC = () => {
                 <span className="hidden md:block font-medium">Activités</span>
               </button>
               <button
+                onClick={() => setActiveTab('stats')}
+                className={`flex items-center gap-3 p-3 rounded-lg transition-colors w-full ${activeTab === 'stats' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-400 hover:bg-slate-800'}`}
+              >
+                <Sparkles className="w-5 h-5" />
+                <span className="hidden md:block font-medium">Statistiques</span>
+              </button>
+              <button
                 onClick={() => setActiveTab('settings')}
                 className={`flex items-center gap-3 p-3 rounded-lg transition-colors w-full ${activeTab === 'settings' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-400 hover:bg-slate-800'}`}
               >
@@ -259,14 +509,33 @@ const App: React.FC = () => {
                 <h2 className="text-3xl font-extrabold text-white">Mon Garage</h2>
                 <p className="text-slate-400">Gérez vos différents vélos et profils d'entretien.</p>
               </div>
-              {!isAddingBike && (
-                <button
-                  onClick={() => setIsAddingBike(true)}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all"
-                >
-                  <Plus className="w-5 h-5" /> Ajouter un vélo
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {!isAddingBike && (
+                  <>
+                    <input type="file" id="import-json" className="hidden" accept=".json" onChange={importData} />
+                    <button
+                      onClick={() => document.getElementById('import-json')?.click()}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all border border-slate-700"
+                      title="Importer une sauvegarde"
+                    >
+                      <FileDown className="w-5 h-5" /> <span className="hidden sm:inline">Importer</span>
+                    </button>
+                    <button
+                      onClick={exportData}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all border border-slate-700"
+                      title="Exporter une sauvegarde"
+                    >
+                      <Download className="w-5 h-5" /> <span className="hidden sm:inline">Exporter</span>
+                    </button>
+                    <button
+                      onClick={() => setIsAddingBike(true)}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20"
+                    >
+                      <Plus className="w-5 h-5" /> Ajouter un vélo
+                    </button>
+                  </>
+                )}
+              </div>
             </header>
 
             {isAddingBike && (
@@ -309,6 +578,16 @@ const App: React.FC = () => {
                           placeholder="Stumpjumper, Fuel..."
                         />
                       </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Prix d'achat (€)</label>
+                      <input
+                        type="number"
+                        value={newBikeData.purchasePrice || ''}
+                        onChange={e => setNewBikeData(prev => ({ ...prev, purchasePrice: parseFloat(e.target.value) }))}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
+                        placeholder="Ex: 2500"
+                      />
                     </div>
                     <button
                       onClick={createBike}
@@ -428,6 +707,31 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* Alerte Sécurité */}
+            {activeBike.components.some(c => {
+              const lastCheck = c.lastSafetyCheckDate ? new Date(c.lastSafetyCheckDate) : new Date(0);
+              const daysSince = (new Date().getTime() - lastCheck.getTime()) / (1000 * 3600 * 24);
+              return daysSince > 90;
+            }) && (
+                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl flex items-center justify-between gap-4 animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-amber-500 p-2 rounded-xl text-white">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-amber-400 font-bold">Vérifications de sécurité recommandées</h4>
+                      <p className="text-amber-500/70 text-sm">Il est temps de vérifier les serrages et l'état général de votre vélo.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={performSafetyCheck}
+                    className="bg-amber-500 hover:bg-amber-400 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+                  >
+                    Effectué
+                  </button>
+                </div>
+              )}
+
             {activeTab === 'dashboard' && (
               <div className="space-y-10">
                 <section>
@@ -481,36 +785,186 @@ const App: React.FC = () => {
               </div>
             )}
 
+            {activeTab === 'stats' && (
+              <StatsView bike={activeBike} />
+            )}
+
+            {showGlobalMap && (
+              <GlobalActivityMap
+                rides={activeBike.rides}
+                onClose={() => setShowGlobalMap(false)}
+              />
+            )}
+
+            {selectedRideForMap && (
+              <RideMap
+                coordinates={selectedRideForMap.coordinates || []}
+                rideName={selectedRideForMap.name}
+                onClose={() => setSelectedRideForMap(null)}
+              />
+            )}
+
             {activeTab === 'history' && (
               <div className="space-y-10">
-                <section className="bg-slate-800/40 p-10 rounded-3xl border-2 border-dashed border-slate-700 text-center group hover:border-indigo-500/50 transition-colors">
-                  <input type="file" id="gpx-upload" className="hidden" multiple accept=".gpx" onChange={handleFileUpload} disabled={isUploading} />
-                  <label htmlFor="gpx-upload" className="cursor-pointer flex flex-col items-center">
-                    <div className={`p-6 rounded-2xl mb-4 transition-all ${isUploading ? 'bg-indigo-600/50 animate-pulse' : 'bg-slate-700 group-hover:bg-indigo-600'}`}>
-                      <Upload className="w-10 h-10 text-white" />
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-slate-800/40 p-8 rounded-3xl border-2 border-dashed border-slate-700 text-center group hover:border-indigo-500/50 transition-colors flex flex-col items-center justify-center">
+                    <input type="file" id="gpx-upload" className="hidden" multiple accept=".gpx" onChange={handleFileUpload} disabled={isUploading} />
+                    <label htmlFor="gpx-upload" className="cursor-pointer flex flex-col items-center">
+                      <div className={`p-4 rounded-xl mb-4 transition-all ${isUploading ? 'bg-indigo-600/50 animate-pulse' : 'bg-slate-700 group-hover:bg-indigo-600'}`}>
+                        <Upload className="w-8 h-8 text-white" />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-100 mb-1">{isUploading ? 'Analyse...' : 'Importer GPX'}</h3>
+                      <p className="text-xs text-slate-400">Assigné à : <span className="text-indigo-400 font-bold">{activeBike.name}</span></p>
+                    </label>
+                  </div>
+
+                  <div className="bg-slate-800/40 p-6 rounded-3xl border border-slate-700">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Plus className="text-indigo-400 w-5 h-5" /> Ajout manuel
+                      </h3>
                     </div>
-                    <h3 className="text-xl font-bold text-slate-100 mb-2">{isUploading ? 'Analyse...' : 'Importer des sorties GPX'}</h3>
-                    <p className="text-slate-400 max-w-sm">Les sorties seront assignées à : <span className="text-indigo-400 font-bold">{activeBike.name}</span></p>
-                  </label>
+
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 tracking-wider">Distance (km)</label>
+                        <input
+                          type="number"
+                          value={manualRideData.distance || ''}
+                          onChange={e => setManualRideData(prev => ({ ...prev, distance: parseFloat(e.target.value) }))}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                          placeholder="0.0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 tracking-wider">Dénivelé (D+ m)</label>
+                        <input
+                          type="number"
+                          value={manualRideData.elevation || ''}
+                          onChange={e => setManualRideData(prev => ({ ...prev, elevation: parseFloat(e.target.value) }))}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 tracking-wider">Date de la sortie</label>
+                      <input
+                        type="date"
+                        value={manualRideData.date}
+                        onChange={e => setManualRideData(prev => ({ ...prev, date: e.target.value }))}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                      />
+                    </div>
+                    <button
+                      onClick={handleManualRide}
+                      disabled={manualRideData.distance <= 0}
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20"
+                    >
+                      Enregistrer la sortie
+                    </button>
+                  </div>
                 </section>
                 <section>
-                  <h2 className="text-2xl font-bold text-slate-100 mb-6">Activité de ce vélo</h2>
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-slate-100">Activité de ce vélo</h2>
+                    {activeBike.rides.some(r => r.coordinates && r.coordinates.length > 0) && (
+                      <button
+                        onClick={() => setShowGlobalMap(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white rounded-xl transition-all border border-indigo-600/20 text-sm font-bold"
+                      >
+                        <MapIcon className="w-4 h-4" /> Carte globale
+                      </button>
+                    )}
+                  </div>
                   <div className="bg-slate-800/40 rounded-2xl border border-slate-700 divide-y divide-slate-700 overflow-hidden">
                     {activeBike.rides.length === 0 ? (
                       <div className="p-10 text-center text-slate-500">Aucune sortie pour ce vélo.</div>
                     ) : (
                       activeBike.rides.map(ride => (
-                        <div key={ride.id} className="p-5 flex items-center justify-between hover:bg-slate-800/50">
+                        <div key={ride.id} className="p-5 flex items-center justify-between hover:bg-slate-800/50 group/ride transition-colors">
                           <div className="flex items-center gap-4">
                             <div className="bg-slate-700 p-2 rounded-lg text-indigo-400"><Bike className="w-5 h-5" /></div>
                             <div>
-                              <h4 className="font-semibold text-slate-100">{ride.name}</h4>
-                              <p className="text-xs text-slate-500">{new Date(ride.date).toLocaleDateString('fr-FR')}</p>
+                              {editingRideNameId === ride.id ? (
+                                <input
+                                  type="text"
+                                  defaultValue={ride.name}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      updateRideName(ride.id, e.currentTarget.value);
+                                      setEditingRideNameId(null);
+                                    }
+                                    if (e.key === 'Escape') setEditingRideNameId(null);
+                                  }}
+                                  onBlur={(e) => {
+                                    updateRideName(ride.id, e.target.value);
+                                    setEditingRideNameId(null);
+                                  }}
+                                  className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 text-sm text-white outline-none focus:border-indigo-500 animate-in fade-in zoom-in-95 duration-200"
+                                  autoFocus
+                                />
+                              ) : (
+                                <h4
+                                  className="font-semibold text-slate-100 font-medium cursor-pointer hover:text-indigo-400 transition-colors group/name flex items-center gap-2"
+                                  onClick={() => setEditingRideNameId(ride.id)}
+                                  title="Renommer l'activité"
+                                >
+                                  {ride.name}
+                                  <Settings2 className="w-3 h-3 opacity-0 group-hover/name:opacity-50 transition-opacity" />
+                                </h4>
+                              )}
+                              {editingRideId === ride.id ? (
+                                <input
+                                  type="date"
+                                  defaultValue={ride.date.split('T')[0]}
+                                  onChange={(e) => {
+                                    updateRideDate(ride.id, e.target.value);
+                                    setEditingRideId(null);
+                                  }}
+                                  onBlur={() => setEditingRideId(null)}
+                                  className="mt-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-white outline-none focus:border-indigo-500 animate-in fade-in zoom-in-95 duration-200"
+                                  autoFocus
+                                />
+                              ) : (
+                                <p
+                                  className="text-[10px] text-slate-500 cursor-pointer hover:text-indigo-400 transition-colors flex items-center gap-1.5 mt-0.5"
+                                  onClick={() => setEditingRideId(ride.id)}
+                                  title="Modifier la date"
+                                >
+                                  {new Date(ride.date).toLocaleDateString('fr-FR')}
+                                  <Settings2 className="w-2.5 h-2.5 opacity-0 group-hover/ride:opacity-100 transition-opacity" />
+                                </p>
+                              )}
                             </div>
                           </div>
-                          <div className="flex gap-8 text-right">
-                            <div><p className="text-xs text-slate-400 uppercase font-bold tracking-widest">Distance</p><p className="font-mono text-slate-200">{ride.distance.toFixed(1)} km</p></div>
-                            <div><p className="text-xs text-slate-400 uppercase font-bold tracking-widest">D+</p><p className="font-mono text-slate-200">{ride.elevationGain.toFixed(0)} m</p></div>
+                          <div className="flex items-center gap-8">
+                            <div className="text-right">
+                              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Distance</p>
+                              <p className="font-mono text-slate-200">{ride.distance.toFixed(1)} km</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">D+</p>
+                              <p className="font-mono text-slate-200">{ride.elevationGain.toFixed(0)} m</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {ride.coordinates && ride.coordinates.length > 0 && (
+                                <button
+                                  onClick={() => setSelectedRideForMap(ride)}
+                                  className="p-2 text-indigo-400 hover:text-white hover:bg-indigo-600 rounded-lg transition-all"
+                                  title="Voir la carte"
+                                >
+                                  <MapIcon className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); deleteRide(ride.id); }}
+                                className="p-2 text-slate-500 hover:text-red-400 transition-colors opacity-0 group-hover/ride:opacity-100 bg-red-500/0 hover:bg-red-500/10 rounded-lg"
+                                title="Supprimer la sortie"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))
@@ -524,14 +978,102 @@ const App: React.FC = () => {
               <div className="space-y-8">
                 <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-100">Seuils de Maintenance</h2>
-                    <p className="text-slate-400">Ajustez les réglages pour <span className="text-indigo-400 font-bold">{activeBike.name}</span>.</p>
+                    <h2 className="text-2xl font-bold text-slate-100">Configuration du Vélo</h2>
+                    <p className="text-slate-400">Gérez les caractéristiques et les composants de <span className="text-indigo-400 font-bold">{activeBike.name}</span>.</p>
                   </div>
-                  <button onClick={() => setIsAddingComponent(!isAddingComponent)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 rounded-xl transition-all shadow-lg">
-                    {isAddingComponent ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                    {isAddingComponent ? 'Annuler' : 'Ajouter un composant'}
-                  </button>
+                  <div className="flex gap-4">
+                    <button
+                      onClick={startEditingBike}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all shadow-lg"
+                    >
+                      <Settings2 className="w-4 h-4" /> Modifier le profil
+                    </button>
+                    <button onClick={() => setIsAddingComponent(!isAddingComponent)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 rounded-xl transition-all shadow-lg">
+                      {isAddingComponent ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                      {isAddingComponent ? 'Annuler' : 'Ajouter un composant'}
+                    </button>
+                  </div>
                 </header>
+
+                {isEditingBike && (
+                  <section className="bg-slate-800 border border-indigo-500/30 rounded-3xl p-8 duration-300">
+                    <div className="flex justify-between items-center mb-8">
+                      <h3 className="text-xl font-bold flex items-center gap-2"><Settings2 className="text-indigo-400" /> Modifier le Profil Vélo</h3>
+                      <button onClick={() => setIsEditingBike(false)} className="text-slate-400 hover:text-white"><X /></button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-400 mb-2">Nom du vélo</label>
+                          <input
+                            type="text"
+                            value={editBikeData.name}
+                            onChange={e => setEditBikeData(prev => ({ ...prev, name: e.target.value }))}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-400 mb-2">Marque</label>
+                            <input
+                              type="text"
+                              value={editBikeData.brand}
+                              onChange={e => setEditBikeData(prev => ({ ...prev, brand: e.target.value }))}
+                              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-400 mb-2">Modèle</label>
+                            <input
+                              type="text"
+                              value={editBikeData.model}
+                              onChange={e => setEditBikeData(prev => ({ ...prev, model: e.target.value }))}
+                              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-400 mb-2">Prix d'achat (€)</label>
+                          <input
+                            type="number"
+                            value={editBikeData.purchasePrice || ''}
+                            onChange={e => setEditBikeData(prev => ({ ...prev, purchasePrice: parseFloat(e.target.value) }))}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
+                          />
+                        </div>
+                        <button
+                          onClick={saveBikeEdit}
+                          disabled={!editBikeData.name}
+                          className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
+                        >
+                          Enregistrer les modifications <Check className="w-6 h-6" />
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 rounded-3xl p-6 relative group overflow-hidden bg-slate-900/50">
+                        {editBikeData.image ? (
+                          <>
+                            <img src={editBikeData.image} alt="Preview" className="w-full h-full object-cover absolute inset-0 opacity-50" />
+                            <button
+                              onClick={() => setEditBikeData(prev => ({ ...prev, image: '' }))}
+                              className="absolute top-4 right-4 bg-red-500 p-2 rounded-full z-10"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : null}
+                        <label className="cursor-pointer flex flex-col items-center gap-4 relative z-10">
+                          <div className="bg-slate-800 p-5 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
+                            <Camera className="w-10 h-10 text-indigo-400" />
+                          </div>
+                          <span className="text-slate-300 font-medium">Changer la photo</span>
+                          <input type="file" accept="image/*" onChange={handleEditImageUpload} className="hidden" />
+                        </label>
+                      </div>
+                    </div>
+                  </section>
+                )}
 
                 {isAddingComponent && (
                   <div className="bg-slate-800 border border-indigo-500/30 p-6 rounded-2xl">
@@ -564,7 +1106,22 @@ const App: React.FC = () => {
                           <button onClick={() => removeComponent(comp.id)} className="text-slate-600 hover:text-red-400 transition-colors p-1"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </div>
-                      <input type="range" min="100" max="5000" step="100" value={comp.thresholdKm} onChange={e => updateThreshold(comp.id, parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Seuil d'usure</label>
+                          <input type="range" min="100" max="5000" step="100" value={comp.thresholdKm} onChange={e => updateThreshold(comp.id, parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Référence de la pièce</label>
+                          <input
+                            type="text"
+                            value={comp.partReference || ''}
+                            placeholder="ex: Shimano HG-95, SRAM GX..."
+                            onChange={e => updateReference(comp.id, e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 outline-none transition-colors"
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
