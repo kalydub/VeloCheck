@@ -227,18 +227,39 @@ const App: React.FC = () => {
     }));
   };
 
-  const resetComponent = (id: string, price?: number, note?: string) => {
+  const resetComponent = (id: string, price?: number, note?: string, date?: string) => {
+    const serviceDate = date ? new Date(date).toISOString() : new Date().toISOString();
     updateActiveBike(bike => ({
       ...bike,
       components: bike.components.map(c =>
         c.id === id ? {
           ...c,
           currentKm: 0,
-          lastServiceDate: new Date().toISOString(),
-          lastSafetyCheckDate: new Date().toISOString(),
+          lastServiceDate: serviceDate,
+          lastSafetyCheckDate: serviceDate,
           serviceHistory: [
             {
-              date: new Date().toISOString(),
+              date: serviceDate,
+              kmAtService: c.currentKm,
+              price: price,
+              note: note
+            },
+            ...(c.serviceHistory || [])
+          ]
+        } : c
+      )
+    }));
+  };
+
+  const addServiceHistory = (id: string, date: string, price?: number, note?: string) => {
+    updateActiveBike(bike => ({
+      ...bike,
+      components: bike.components.map(c =>
+        c.id === id ? {
+          ...c,
+          serviceHistory: [
+            {
+              date: new Date(date).toISOString(),
               kmAtService: c.currentKm,
               price: price,
               note: note
@@ -774,7 +795,12 @@ const App: React.FC = () => {
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {activeBike.components.map(comp => (
-                      <ComponentCard key={comp.id} component={comp} onReset={resetComponent} />
+                      <ComponentCard
+                        key={comp.id}
+                        component={comp}
+                        onReset={resetComponent}
+                        onAddHistory={addServiceHistory}
+                      />
                     ))}
                   </div>
                 </section>

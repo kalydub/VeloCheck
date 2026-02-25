@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
 import { ComponentStatus } from '../types';
-import { RefreshCcw, AlertTriangle, CheckCircle, Info, X, Check, DollarSign, StickyNote, Tag } from 'lucide-react';
+import { RefreshCcw, AlertTriangle, CheckCircle, Info, X, Check, DollarSign, StickyNote, Tag, Calendar } from 'lucide-react';
 
 interface ComponentCardProps {
   component: ComponentStatus;
-  onReset: (id: string, price?: number, note?: string) => void;
+  onReset: (id: string, price?: number, note?: string, date?: string) => void;
+  onAddHistory: (id: string, date: string, price?: number, note?: string) => void;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -15,9 +16,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   'brakes': 'Freinage'
 };
 
-const ComponentCard: React.FC<ComponentCardProps> = ({ component, onReset }) => {
+const ComponentCard: React.FC<ComponentCardProps> = ({ component, onReset, onAddHistory }) => {
   const [showResetForm, setShowResetForm] = useState(false);
-  const [resetData, setResetData] = useState({ price: '', note: '' });
+  const [resetData, setResetData] = useState({
+    price: '',
+    note: '',
+    date: new Date().toISOString().split('T')[0],
+    shouldReset: true
+  });
 
   const isTimeThreshold = component.thresholdType === 'time';
 
@@ -55,9 +61,28 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, onReset }) => 
   }
 
   const handleResetSubmit = () => {
-    onReset(component.id, parseFloat(resetData.price) || undefined, resetData.note || undefined);
+    if (resetData.shouldReset) {
+      onReset(
+        component.id,
+        parseFloat(resetData.price) || undefined,
+        resetData.note || undefined,
+        resetData.date
+      );
+    } else {
+      onAddHistory(
+        component.id,
+        resetData.date,
+        parseFloat(resetData.price) || undefined,
+        resetData.note || undefined
+      );
+    }
     setShowResetForm(false);
-    setResetData({ price: '', note: '' });
+    setResetData({
+      price: '',
+      note: '',
+      date: new Date().toISOString().split('T')[0],
+      shouldReset: true
+    });
   };
 
   return (
@@ -101,6 +126,15 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, onReset }) => 
           </h4>
           <div className="space-y-3">
             <div className="relative">
+              <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+              <input
+                type="date"
+                value={resetData.date}
+                onChange={e => setResetData(prev => ({ ...prev, date: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:border-indigo-500 outline-none"
+              />
+            </div>
+            <div className="relative">
               <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
               <input
                 type="number"
@@ -114,13 +148,26 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, onReset }) => 
               <StickyNote className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
               <input
                 type="text"
-                placeholder="Note (ex: marque, modèle...)"
+                placeholder="Note (ex: contrôle, graissage...)"
                 value={resetData.note}
                 onChange={e => setResetData(prev => ({ ...prev, note: e.target.value }))}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:border-indigo-500 outline-none"
               />
             </div>
-            <div className="flex gap-2">
+
+            <label className="flex items-center gap-2 cursor-pointer group py-1">
+              <div
+                className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${resetData.shouldReset ? 'bg-indigo-600 border-indigo-600' : 'bg-slate-800 border-slate-700 group-hover:border-slate-500'}`}
+                onClick={() => setResetData(prev => ({ ...prev, shouldReset: !prev.shouldReset }))}
+              >
+                {resetData.shouldReset && <Check className="w-3 h-3 text-white" />}
+              </div>
+              <span className="text-xs text-slate-300" onClick={() => setResetData(prev => ({ ...prev, shouldReset: !prev.shouldReset }))}>
+                Remettre à zéro l'usure
+              </span>
+            </label>
+
+            <div className="flex gap-2 pt-1">
               <button
                 onClick={handleResetSubmit}
                 className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"
@@ -144,7 +191,7 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, onReset }) => 
             className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white rounded-md text-sm transition-all shadow-sm"
           >
             <RefreshCcw className="w-3.5 h-3.5" />
-            Réinitialiser
+            Maintenance
           </button>
         </div>
       )}
