@@ -37,10 +37,22 @@ const StatsView: React.FC<StatsViewProps> = ({ bike }) => {
     const totalSpent = (bike.purchasePrice || 0) + maintenanceSpent;
 
     // Analyse de l'usure (Heatmap simplification)
-    const wearLevels = bike.components.map(c => ({
-        name: c.name,
-        percentage: Math.min(100, Math.round((c.currentKm / c.thresholdKm) * 100))
-    })).sort((a, b) => b.percentage - a.percentage);
+    const wearLevels = bike.components.map(c => {
+        let percentage = 0;
+        if (c.thresholdType === 'time') {
+            const lastService = new Date(c.lastServiceDate);
+            const now = new Date();
+            const diffTime = Math.abs(now.getTime() - lastService.getTime());
+            const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44);
+            percentage = Math.round((diffMonths / (c.thresholdMonths || 12)) * 100);
+        } else {
+            percentage = Math.round((c.currentKm / c.thresholdKm) * 100);
+        }
+        return {
+            name: c.name,
+            percentage: Math.min(100, percentage)
+        };
+    }).sort((a, b) => b.percentage - a.percentage);
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

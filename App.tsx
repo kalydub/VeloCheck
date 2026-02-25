@@ -41,6 +41,8 @@ const App: React.FC = () => {
   const [isAddingComponent, setIsAddingComponent] = useState(false);
   const [newCompName, setNewCompName] = useState('');
   const [newCompThreshold, setNewCompThreshold] = useState(1000);
+  const [newCompThresholdMonths, setNewCompThresholdMonths] = useState(12);
+  const [newCompThresholdType, setNewCompThresholdType] = useState<'distance' | 'time'>('distance');
   const [newCompCategory, setNewCompCategory] = useState<ComponentStatus['category']>('drivetrain');
 
   // Formulaire nouvelle sortie manuelle
@@ -267,6 +269,24 @@ const App: React.FC = () => {
     }));
   };
 
+  const updateThresholdType = (id: string, type: 'distance' | 'time') => {
+    updateActiveBike(bike => ({
+      ...bike,
+      components: bike.components.map(c =>
+        c.id === id ? { ...c, thresholdType: type } : c
+      )
+    }));
+  };
+
+  const updateThresholdMonths = (id: string, months: number) => {
+    updateActiveBike(bike => ({
+      ...bike,
+      components: bike.components.map(c =>
+        c.id === id ? { ...c, thresholdMonths: months } : c
+      )
+    }));
+  };
+
   const updateReference = (id: string, reference: string) => {
     updateActiveBike(bike => ({
       ...bike,
@@ -283,6 +303,8 @@ const App: React.FC = () => {
       name: newCompName,
       currentKm: 0,
       thresholdKm: newCompThreshold,
+      thresholdMonths: newCompThresholdMonths,
+      thresholdType: newCompThresholdType,
       lastServiceDate: new Date().toISOString(),
       category: newCompCategory,
       serviceHistory: []
@@ -1087,17 +1109,56 @@ const App: React.FC = () => {
 
                 {isAddingComponent && (
                   <div className="bg-slate-800 border border-indigo-500/30 p-6 rounded-2xl">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <input type="text" value={newCompName} onChange={e => setNewCompName(e.target.value)} placeholder="Nom (ex: Chaîne...)" className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2" />
-                      <select value={newCompCategory} onChange={e => setNewCompCategory(e.target.value as any)} className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2">
-                        <option value="drivetrain">Transmission</option>
-                        <option value="suspension">Suspension</option>
-                        <option value="tires">Pneus</option>
-                        <option value="brakes">Freinage</option>
-                      </select>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                      <div className="space-y-2">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Nom</label>
+                        <input type="text" value={newCompName} onChange={e => setNewCompName(e.target.value)} placeholder="Chaîne, Pneu..." className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Catégorie</label>
+                        <select value={newCompCategory} onChange={e => setNewCompCategory(e.target.value as any)} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2">
+                          <option value="drivetrain">Transmission</option>
+                          <option value="suspension">Suspension</option>
+                          <option value="tires">Pneus</option>
+                          <option value="brakes">Freinage</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Type de seuil</label>
+                        <div className="flex bg-slate-900 rounded-xl p-1 border border-slate-700">
+                          <button
+                            onClick={() => setNewCompThresholdType('distance')}
+                            className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${newCompThresholdType === 'distance' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                          >
+                            Distance
+                          </button>
+                          <button
+                            onClick={() => setNewCompThresholdType('time')}
+                            className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${newCompThresholdType === 'time' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                          >
+                            Durée
+                          </button>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-3">
-                        <input type="range" min="100" max="5000" step="100" value={newCompThreshold} onChange={e => setNewCompThreshold(parseInt(e.target.value))} className="flex-1 accent-indigo-500" />
-                        <button onClick={addComponent} disabled={!newCompName.trim()} className="bg-indigo-600 p-2 rounded-xl"><Check /></button>
+                        {newCompThresholdType === 'distance' ? (
+                          <div className="flex-1 space-y-2">
+                            <div className="flex justify-between text-[10px] font-bold">
+                              <span className="text-slate-500 uppercase">Seuil</span>
+                              <span className="text-indigo-400 font-mono">{newCompThreshold} km</span>
+                            </div>
+                            <input type="range" min="100" max="10000" step="100" value={newCompThreshold} onChange={e => setNewCompThreshold(parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                          </div>
+                        ) : (
+                          <div className="flex-1 space-y-2">
+                            <div className="flex justify-between text-[10px] font-bold">
+                              <span className="text-slate-500 uppercase">Seuil</span>
+                              <span className="text-indigo-400 font-mono">{newCompThresholdMonths} mois</span>
+                            </div>
+                            <input type="range" min="1" max="60" step="1" value={newCompThresholdMonths} onChange={e => setNewCompThresholdMonths(parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                          </div>
+                        )}
+                        <button onClick={addComponent} disabled={!newCompName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded-xl transition-all shadow-lg active:scale-95"><Check /></button>
                       </div>
                     </div>
                   </div>
@@ -1111,16 +1172,46 @@ const App: React.FC = () => {
                           <label className="text-slate-200 font-bold">{comp.name}</label>
                           <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-400 uppercase">{comp.category}</span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-indigo-400 font-mono font-bold bg-indigo-500/10 px-3 py-1 rounded-lg">{comp.thresholdKm} km</span>
-                          <button onClick={() => removeComponent(comp.id)} className="text-slate-600 hover:text-red-400 transition-colors p-1"><Trash2 className="w-4 h-4" /></button>
-                        </div>
+                        <button onClick={() => removeComponent(comp.id)} className="text-slate-600 hover:text-red-400 transition-colors p-1"><Trash2 className="w-4 h-4" /></button>
                       </div>
+
                       <div className="space-y-4">
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Seuil d'usure</label>
-                          <input type="range" min="100" max="5000" step="100" value={comp.thresholdKm} onChange={e => updateThreshold(comp.id, parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                        <div className="space-y-2">
+                          <label className="text-[10px] uppercase font-bold text-slate-500 block">Type de seuil d'usure</label>
+                          <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700 w-full max-w-[200px]">
+                            <button
+                              onClick={() => updateThresholdType(comp.id, 'distance')}
+                              className={`flex-1 py-1 rounded-md text-[10px] font-bold transition-all ${comp.thresholdType !== 'time' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                              Distance
+                            </button>
+                            <button
+                              onClick={() => updateThresholdType(comp.id, 'time')}
+                              className={`flex-1 py-1 rounded-md text-[10px] font-bold transition-all ${comp.thresholdType === 'time' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                              Durée
+                            </button>
+                          </div>
                         </div>
+
+                        {comp.thresholdType === 'time' ? (
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-[10px] uppercase font-bold text-slate-500">
+                              <span>Seuil d'usure (mois)</span>
+                              <span className="text-indigo-400">{comp.thresholdMonths || 12} mois</span>
+                            </div>
+                            <input type="range" min="1" max="60" step="1" value={comp.thresholdMonths || 12} onChange={e => updateThresholdMonths(comp.id, parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-[10px] uppercase font-bold text-slate-500">
+                              <span>Seuil d'usure (km)</span>
+                              <span className="text-indigo-400">{comp.thresholdKm} km</span>
+                            </div>
+                            <input type="range" min="100" max="10000" step="100" value={comp.thresholdKm} onChange={e => updateThreshold(comp.id, parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                          </div>
+                        )}
+
                         <div>
                           <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Référence de la pièce</label>
                           <input

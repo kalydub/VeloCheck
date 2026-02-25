@@ -16,9 +16,14 @@ export async function getMaintenanceAdvice(bike: BikeProfile) {
   const ai = new GoogleGenAI({ apiKey });
 
   // Accessing bike properties instead of app state
-  const componentSummary = bike.components.map(c =>
-    `${c.name}: ${c.currentKm.toFixed(1)}km / seuil de ${c.thresholdKm}km`
-  ).join('\n');
+  const componentSummary = bike.components.map(c => {
+    if (c.thresholdType === 'time') {
+      const lastService = new Date(c.lastServiceDate);
+      const diffMonths = (new Date().getTime() - lastService.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+      return `${c.name}: ${diffMonths.toFixed(1)} mois écoulés / seuil de ${c.thresholdMonths || 12} mois`;
+    }
+    return `${c.name}: ${c.currentKm.toFixed(1)}km / seuil de ${c.thresholdKm}km`;
+  }).join('\n');
 
   const prompt = `
     Analyse l'état d'entretien suivant pour le vélo "${bike.name}" :

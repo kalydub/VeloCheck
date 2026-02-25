@@ -12,6 +12,8 @@ export interface ComponentStatus {
   partReference?: string;
   currentKm: number;
   thresholdKm: number;
+  thresholdMonths?: number;
+  thresholdType: 'distance' | 'time';
   lastServiceDate: string;
   lastSafetyCheckDate?: string;
   category: 'drivetrain' | 'suspension' | 'tires' | 'brakes';

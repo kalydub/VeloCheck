@@ -19,7 +19,26 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, onReset }) => 
   const [showResetForm, setShowResetForm] = useState(false);
   const [resetData, setResetData] = useState({ price: '', note: '' });
 
-  const percentage = Math.min((component.currentKm / component.thresholdKm) * 100, 100);
+  const isTimeThreshold = component.thresholdType === 'time';
+
+  let percentage = 0;
+  let displayValue = '';
+  let displayThreshold = '';
+
+  if (isTimeThreshold) {
+    const lastService = new Date(component.lastServiceDate);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - lastService.getTime());
+    const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44); // Average month length
+    const thresholdMonths = component.thresholdMonths || 12;
+    percentage = Math.min((diffMonths / thresholdMonths) * 100, 100);
+    displayValue = `${diffMonths.toFixed(1)} mois`;
+    displayThreshold = `${thresholdMonths} mois`;
+  } else {
+    percentage = Math.min((component.currentKm / component.thresholdKm) * 100, 100);
+    displayValue = `${component.currentKm.toFixed(1)} km`;
+    displayThreshold = `${component.thresholdKm} km`;
+  }
 
   let statusColor = 'bg-green-500';
   let textColor = 'text-green-400';
@@ -64,7 +83,7 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, onReset }) => 
 
       <div className="mb-4 mt-2">
         <div className="flex justify-between text-sm mb-1">
-          <span className="text-slate-300">{component.currentKm.toFixed(1)} / {component.thresholdKm} km</span>
+          <span className="text-slate-300">{displayValue} / {displayThreshold}</span>
           <span className={`font-semibold ${textColor}`}>{Math.round(percentage)}%</span>
         </div>
         <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
