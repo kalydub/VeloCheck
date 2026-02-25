@@ -14,6 +14,8 @@ import StatsView from './components/StatsView';
 import RideMap from './components/RideMap';
 import GlobalActivityMap from './components/GlobalActivityMap';
 import { db } from './db';
+import { Analytics } from "@vercel/analytics/react";
+
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
@@ -499,6 +501,8 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
+      <Analytics />
+
       {/* Sidebar Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 md:top-0 md:left-0 md:bottom-0 md:w-64 bg-slate-900 border-t md:border-r border-slate-800 z-50">
         <div className="hidden md:flex p-6 items-center gap-3 border-b border-slate-800 mb-6">
