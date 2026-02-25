@@ -27,6 +27,7 @@ export interface RideData {
   distance: number;
   elevationGain: number;
   coordinates?: [number, number][]; // [lat, lng] array
+  stravaId?: string;
 }
 
 export interface BikeProfile {

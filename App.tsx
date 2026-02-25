@@ -14,7 +14,15 @@ import StatsView from './components/StatsView';
 import RideMap from './components/RideMap';
 import GlobalActivityMap from './components/GlobalActivityMap';
 import { db } from './db';
+
 import { Analytics } from "@vercel/analytics/react";
+import {
+  fetchStravaActivities,
+  getStravaAuthUrl,
+  exchangeStravaCodeForToken,
+  isStravaConnected,
+  disconnectStrava
+} from './services/stravaService';
 
 
 const App: React.FC = () => {
@@ -32,6 +40,8 @@ const App: React.FC = () => {
   const [showGlobalMap, setShowGlobalMap] = useState(false);
   const [advice, setAdvice] = useState<{ tips: string[], summary: string } | null>(null);
   const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
+  const [isSyncingStrava, setIsSyncingStrava] = useState(false);
+  const [stravaConnected, setStravaConnected] = useState(false);
 
   // Formulaire nouveau vélo
   const [isAddingBike, setIsAddingBike] = useState(false);
@@ -92,6 +102,32 @@ const App: React.FC = () => {
       }
     };
     loadData();
+  }, []);
+
+  // Strava OAuth Callback & Connection Check
+  useEffect(() => {
+    const checkStrava = async () => {
+      const connected = await isStravaConnected();
+      setStravaConnected(connected);
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      if (code) {
+        // Clean URL immediately
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        setIsSyncingStrava(true);
+        const success = await exchangeStravaCodeForToken(code);
+        if (success) {
+          setStravaConnected(true);
+          alert("Compte Strava connecté avec succès !");
+        } else {
+          alert("Échec de la connexion Strava.");
+        }
+        setIsSyncingStrava(false);
+      }
+    };
+    checkStrava();
   }, []);
 
   useEffect(() => {
@@ -482,6 +518,68 @@ const App: React.FC = () => {
     setIsLoadingAdvice(false);
   };
 
+  const handleStravaSync = async () => {
+    if (!activeBike) return;
+
+    if (!stravaConnected) {
+      window.location.href = getStravaAuthUrl();
+      return;
+    }
+
+    setIsSyncingStrava(true);
+
+    try {
+      // Find the date of the most recent ride with a Strava ID
+      const stravaRides = activeBike.rides.filter(r => r.stravaId);
+      let afterDate: number | undefined = undefined;
+
+      if (stravaRides.length > 0) {
+        const latestStravaRide = stravaRides.reduce((latest, current) =>
+          new Date(current.date).getTime() > new Date(latest.date).getTime() ? current : latest
+        );
+        afterDate = new Date(latestStravaRide.date).getTime();
+      }
+
+      const newActivities = await fetchStravaActivities(afterDate);
+
+      if (newActivities.length === 0) {
+        alert("Aucune nouvelle activité Strava trouvée.");
+        return;
+      }
+
+      // Filter out activities that might already exist (secondary check)
+      const filteredNewActivities = newActivities.filter(na =>
+        !activeBike.rides.some(existing => existing.stravaId === na.stravaId)
+      );
+
+      if (filteredNewActivities.length === 0) {
+        alert("Toutes les activités Strava sont déjà synchronisées.");
+        return;
+      }
+
+      const totalNewDist = filteredNewActivities.reduce((acc, curr) => acc + curr.distance, 0);
+      const totalNewElev = filteredNewActivities.reduce((acc, curr) => acc + curr.elevationGain, 0);
+
+      updateActiveBike(bike => ({
+        ...bike,
+        rides: [...filteredNewActivities, ...bike.rides],
+        totalDistance: bike.totalDistance + totalNewDist,
+        totalElevation: bike.totalElevation + totalNewElev,
+        components: bike.components.map(c => ({
+          ...c,
+          currentKm: c.currentKm + totalNewDist
+        }))
+      }));
+
+      alert(`${filteredNewActivities.length} activités Strava synchronisées !`);
+    } catch (error) {
+      console.error("Erreur Strava Sync:", error);
+      alert("Erreur lors de la synchronisation Strava. Vérifiez vos clés API dans le fichier .env.");
+    } finally {
+      setIsSyncingStrava(false);
+    }
+  };
+
   // Rediriger vers garage si aucun vélo
   useEffect(() => {
     if (state.bikes.length === 0) setActiveTab('garage');
@@ -869,7 +967,8 @@ const App: React.FC = () => {
 
             {activeTab === 'history' && (
               <div className="space-y-10">
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
                   <div className="bg-slate-800/40 p-8 rounded-3xl border-2 border-dashed border-slate-700 text-center group hover:border-indigo-500/50 transition-colors flex flex-col items-center justify-center">
                     <input type="file" id="gpx-upload" className="hidden" multiple accept=".gpx" onChange={handleFileUpload} disabled={isUploading} />
                     <label htmlFor="gpx-upload" className="cursor-pointer flex flex-col items-center">
@@ -881,7 +980,38 @@ const App: React.FC = () => {
                     </label>
                   </div>
 
+                  <div className="bg-slate-800/40 p-8 rounded-3xl border border-orange-500/20 text-center group hover:border-orange-500/50 transition-colors flex flex-col items-center justify-center">
+                    <button
+                      onClick={handleStravaSync}
+                      disabled={isSyncingStrava}
+                      className="flex flex-col items-center group w-full"
+                    >
+                      <div className={`p-4 rounded-xl mb-4 transition-all ${isSyncingStrava ? 'bg-orange-600 animate-spin' : 'bg-slate-700 group-hover:bg-[#FC4C02]'}`}>
+                        {isSyncingStrava ? <RefreshCcw className="w-8 h-8 text-white" /> : (
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="white" className={!stravaConnected ? 'opacity-50' : ''}>
+                            <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.596l2.836 5.596h4.172L10.463 0l-7 13.828h4.172" />
+                          </svg>
+                        )}
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-100 mb-1">
+                        {isSyncingStrava ? 'Action en cours...' : (stravaConnected ? 'Sync Strava' : 'Connecter Strava')}
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        {stravaConnected ? 'Récupérer mes sorties' : 'Autoriser VeloCheck'}
+                      </p>
+                    </button>
+                    {stravaConnected && !isSyncingStrava && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); disconnectStrava().then(() => setStravaConnected(false)); }}
+                        className="mt-4 text-[10px] text-slate-500 hover:text-red-400 underline"
+                      >
+                        Déconnecter mon compte
+                      </button>
+                    )}
+                  </div>
+
                   <div className="bg-slate-800/40 p-6 rounded-3xl border border-slate-700">
+
                     <div className="flex justify-between items-center mb-6">
                       <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <Plus className="text-indigo-400 w-5 h-5" /> Ajout manuel
