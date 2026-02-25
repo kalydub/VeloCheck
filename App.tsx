@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Bike, Upload, BarChart3, Settings2, Sparkles, Plus, Trash2,
   ChevronRight, RefreshCcw, AlertTriangle, X, Check, Camera,
-  ArrowLeft, LayoutGrid, Download, FileDown, Save, Map as MapIcon
+  ArrowLeft, LayoutGrid, Download, FileDown, Save, Map as MapIcon,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { AppState, BikeProfile, ComponentStatus, GpxAnalysisResult, RideData } from './types';
 import { DEFAULT_COMPONENTS } from './constants';
@@ -42,6 +43,10 @@ const App: React.FC = () => {
   const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
   const [isSyncingStrava, setIsSyncingStrava] = useState(false);
   const [stravaConnected, setStravaConnected] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ field: keyof RideData, direction: 'asc' | 'desc' }>({
+    field: 'date',
+    direction: 'desc'
+  });
 
   // Formulaire nouveau vélo
   const [isAddingBike, setIsAddingBike] = useState(false);
@@ -151,6 +156,23 @@ const App: React.FC = () => {
   }, [state, isLoading]);
 
   const activeBike = state.bikes.find(b => b.id === state.activeBikeId);
+
+  const sortedRides = React.useMemo(() => {
+    if (!activeBike) return [];
+    return [...activeBike.rides].sort((a, b) => {
+      let aValue: any = a[sortConfig.field] || 0;
+      let bValue: any = b[sortConfig.field] || 0;
+
+      if (sortConfig.field === 'date') {
+        aValue = new Date(a.date).getTime();
+        bValue = new Date(b.date).getTime();
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [activeBike, sortConfig]);
 
   const updateActiveBike = (updater: (bike: BikeProfile) => BikeProfile) => {
     if (!state.activeBikeId) return;
@@ -1069,8 +1091,31 @@ const App: React.FC = () => {
                   </div>
                 </section>
                 <section>
-                  <div className="flex justify-between items-center mb-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                     <h2 className="text-2xl font-bold text-slate-100">Activité de ce vélo</h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-slate-500 uppercase font-bold mr-2">Trier par :</span>
+                      {[
+                        { label: 'Date', field: 'date' },
+                        { label: 'Nom', field: 'name' },
+                        { label: 'Dist.', field: 'distance' },
+                        { label: 'D+', field: 'elevationGain' }
+                      ].map(option => (
+                        <button
+                          key={option.field}
+                          onClick={() => setSortConfig(prev => ({
+                            field: option.field as keyof RideData,
+                            direction: prev.field === option.field ? (prev.direction === 'asc' ? 'desc' : 'asc') : 'desc'
+                          }))}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${sortConfig.field === option.field ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                        >
+                          {option.label}
+                          {sortConfig.field === option.field && (
+                            sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
                     {activeBike.rides.some(r => r.coordinates && r.coordinates.length > 0) && (
                       <button
                         onClick={() => setShowGlobalMap(true)}
@@ -1081,10 +1126,10 @@ const App: React.FC = () => {
                     )}
                   </div>
                   <div className="bg-slate-800/40 rounded-2xl border border-slate-700 divide-y divide-slate-700 overflow-hidden">
-                    {activeBike.rides.length === 0 ? (
+                    {sortedRides.length === 0 ? (
                       <div className="p-10 text-center text-slate-500">Aucune sortie pour ce vélo.</div>
                     ) : (
-                      activeBike.rides.map(ride => (
+                      sortedRides.map(ride => (
                         <div key={ride.id} className="p-5 flex items-center justify-between hover:bg-slate-800/50 group/ride transition-colors">
                           <div className="flex items-center gap-4">
                             <div className="bg-slate-700 p-2 rounded-lg text-indigo-400"><Bike className="w-5 h-5" /></div>
