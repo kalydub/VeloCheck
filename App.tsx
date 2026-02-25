@@ -44,6 +44,7 @@ const App: React.FC = () => {
   const [newCompThresholdMonths, setNewCompThresholdMonths] = useState(12);
   const [newCompThresholdType, setNewCompThresholdType] = useState<'distance' | 'time'>('distance');
   const [newCompCategory, setNewCompCategory] = useState<ComponentStatus['category']>('drivetrain');
+  const [newCompLastServiceDate, setNewCompLastServiceDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Formulaire nouvelle sortie manuelle
   const [isAddingManualRide, setIsAddingManualRide] = useState(false);
@@ -296,6 +297,15 @@ const App: React.FC = () => {
     }));
   };
 
+  const updateLastServiceDate = (id: string, date: string) => {
+    updateActiveBike(bike => ({
+      ...bike,
+      components: bike.components.map(c =>
+        c.id === id ? { ...c, lastServiceDate: new Date(date).toISOString() } : c
+      )
+    }));
+  };
+
   const addComponent = () => {
     if (!newCompName.trim() || !activeBike) return;
     const newComponent: ComponentStatus = {
@@ -305,12 +315,13 @@ const App: React.FC = () => {
       thresholdKm: newCompThreshold,
       thresholdMonths: newCompThresholdMonths,
       thresholdType: newCompThresholdType,
-      lastServiceDate: new Date().toISOString(),
+      lastServiceDate: new Date(newCompLastServiceDate).toISOString(),
       category: newCompCategory,
       serviceHistory: []
     };
     updateActiveBike(bike => ({ ...bike, components: [...bike.components, newComponent] }));
     setNewCompName('');
+    setNewCompLastServiceDate(new Date().toISOString().split('T')[0]);
     setIsAddingComponent(false);
   };
 
@@ -1109,7 +1120,7 @@ const App: React.FC = () => {
 
                 {isAddingComponent && (
                   <div className="bg-slate-800 border border-indigo-500/30 p-6 rounded-2xl">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
                       <div className="space-y-2">
                         <label className="text-[10px] uppercase font-bold text-slate-500">Nom</label>
                         <input type="text" value={newCompName} onChange={e => setNewCompName(e.target.value)} placeholder="Chaîne, Pneu..." className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2" />
@@ -1122,6 +1133,10 @@ const App: React.FC = () => {
                           <option value="tires">Pneus</option>
                           <option value="brakes">Freinage</option>
                         </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Date d'install.</label>
+                        <input type="date" value={newCompLastServiceDate} onChange={e => setNewCompLastServiceDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] uppercase font-bold text-slate-500">Type de seuil</label>
@@ -1212,15 +1227,26 @@ const App: React.FC = () => {
                           </div>
                         )}
 
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Référence de la pièce</label>
-                          <input
-                            type="text"
-                            value={comp.partReference || ''}
-                            placeholder="ex: Shimano HG-95, SRAM GX..."
-                            onChange={e => updateReference(comp.id, e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 outline-none transition-colors"
-                          />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Référence de la pièce</label>
+                            <input
+                              type="text"
+                              value={comp.partReference || ''}
+                              placeholder="ex: Shimano HG-95, SRAM GX..."
+                              onChange={e => updateReference(comp.id, e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 outline-none transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Date d'install. / service</label>
+                            <input
+                              type="date"
+                              value={comp.lastServiceDate.split('T')[0]}
+                              onChange={e => updateLastServiceDate(comp.id, e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 outline-none transition-colors"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
