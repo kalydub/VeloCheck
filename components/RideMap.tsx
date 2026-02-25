@@ -66,12 +66,18 @@ const RideMap: React.FC<RideMapProps> = ({ coordinates, onClose, rideName }) => 
                         className="w-full h-full bg-slate-900"
                     >
                         <TileLayer
-                            attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
-                            url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+                            attribution='Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
+                            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
                         />
                         <Polyline
                             positions={coordinates}
-                            pathOptions={{ color: '#6366f1', weight: 4, opacity: 0.8 }}
+                            pathOptions={{
+                                color: '#FC4C02',
+                                weight: 5,
+                                opacity: 0.9,
+                                lineCap: 'round',
+                                lineJoin: 'round'
+                            }}
                         />
                         <RecenterMap coordinates={coordinates} />
                     </MapContainer>
