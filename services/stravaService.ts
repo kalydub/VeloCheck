@@ -2,8 +2,8 @@
 import { db } from "../db";
 import { RideData } from "../types";
 
-const CLIENT_ID = (import.meta as any).env?.VITE_STRAVA_CLIENT_ID;
-const CLIENT_SECRET = (import.meta as any).env?.VITE_STRAVA_CLIENT_SECRET;
+const CLIENT_ID = (import.meta as any).env?.VITE_STRAVA_CLIENT_ID || (process as any).env?.VITE_STRAVA_CLIENT_ID;
+const CLIENT_SECRET = (import.meta as any).env?.VITE_STRAVA_CLIENT_SECRET || (process as any).env?.VITE_STRAVA_CLIENT_SECRET;
 
 // No static refresh token needed for multi-user flow
 
