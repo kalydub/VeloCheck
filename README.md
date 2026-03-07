@@ -1,6 +1,6 @@
 # VeloCheck
 
-![VeloCheck Mockup](C:/Users/trust/.gemini/antigravity/brain/2073c3bb-98d5-4e5d-818d-0722b3c0cd97/velocheck_mockup_1772897128362.png)
+![VeloCheck Mockup](./mockup.png)
 
 VeloCheck est votre assistant ultime d'entretien vélo. Il synchronise vos trajets Strava, calcule l'usure de vos composants (chaîne, freins...), et fournit des conseils d'entretien personnalisés grâce à l'IA pour optimiser la longévité de votre monture de manière sûre.
 
