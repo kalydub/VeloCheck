@@ -1,20 +1,22 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# VeloCheck
 
-# Run and deploy your AI Studio app
+![VeloCheck Mockup](C:/Users/trust/.gemini/antigravity/brain/2073c3bb-98d5-4e5d-818d-0722b3c0cd97/velocheck_mockup_1772897128362.png)
 
-This contains everything you need to run your app locally.
+VeloCheck est votre assistant ultime d'entretien vélo. Il synchronise vos trajets Strava, calcule l'usure de vos composants (chaîne, freins...), et fournit des conseils d'entretien personnalisés grâce à l'IA pour optimiser la longévité de votre monture de manière sûre.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1luKJRJPzDZE53ZVLMFgJUcv-iMc_6Hwr
+## Démarrage rapide
 
-## Run Locally
+1. Clonez ce dépôt.
+2. Copiez `.env.example` vers `.env` (ou créez simplement un fichier `.env`) et remplissez les valeurs :
+   ```
+   VITE_GEMINI_API_KEY=votre_cle_api_gemini
+   VITE_STRAVA_CLIENT_ID=votre_client_id_strava
+   VITE_STRAVA_CLIENT_SECRET=votre_client_secret_strava
+   VITE_STRAVA_REFRESH_TOKEN=votre_refresh_token_strava
+   ```
+3. Installez les dépendances avec `npm install`.
+4. Lancez l'application ave `npm run dev`.
 
-**Prerequisites:**  Node.js
+## Licence
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Ce projet est sous licence MIT.
