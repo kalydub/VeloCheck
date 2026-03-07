@@ -4,6 +4,13 @@
 
 VeloCheck est votre assistant ultime d'entretien vélo. Il synchronise vos trajets Strava, calcule l'usure de vos composants (chaîne, freins...), et fournit des conseils d'entretien personnalisés grâce à l'IA pour optimiser la longévité de votre monture de manière sûre.
 
+> [!TIP]
+> **🚀 L'application est disponible en ligne ici : [https://velocheck.vercel.app/](https://velocheck.vercel.app/)**
+
+> [!WARNING]
+> **⚠️ Important :** N'oubliez pas de bien **sauvegarder votre garage** (en cliquant sur l'icône de sauvegarde) après chaque modification ou synchronisation, au risque de perdre vos dernières données lors de la prochaine actualisation du navigateur.
+
+
 ## Démarrage rapide
 
 1. Clonez ce dépôt.
