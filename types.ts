@@ -38,19 +38,23 @@ export interface BikeSetup {
   gpxPath?: string;
   geometryModified: boolean;
   geometryDetails?: string;
-  forkPSI: number;
-  forkHighPSI?: number;
-  forkLowPSI?: number;
+  forkType: 'air' | 'coil';
+  forkMainPSI?: number;
+  forkSecondaryPSI?: number;
   forkSpringRate?: number;
-  forkRebound: number;
+  forkLSR: number;
+  forkHSR: number;
   forkLSC: number;
   forkHSC: number;
+  shockType: 'air' | 'coil';
   shockPSI: number;
   shockSpringRate?: number;
-  shockRebound: number;
+  shockLSR: number;
+  shockHSR: number;
   shockLSC: number;
   shockHSC: number;
-  sagPercentage: number;
+  forkSAG: number;
+  shockSAG: number;
   comments: string;
 }
 

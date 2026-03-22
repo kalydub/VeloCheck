@@ -88,18 +88,23 @@ const App: React.FC = () => {
             ...b,
             setups: (b.setups || []).map(s => ({
               ...s,
-              forkRebound: s.forkRebound !== undefined ? s.forkRebound : (s as any).reboundClicks || 0,
-              forkLSC: s.forkLSC !== undefined ? s.forkLSC : (s as any).lscClicks || 0,
-              forkHSC: s.forkHSC !== undefined ? s.forkHSC : (s as any).hscClicks || 0,
-              shockRebound: s.shockRebound !== undefined ? s.shockRebound : (s as any).reboundClicks || 0,
-              shockLSC: s.shockLSC !== undefined ? s.shockLSC : (s as any).lscClicks || 0,
-              shockHSC: s.shockHSC !== undefined ? s.shockHSC : (s as any).hscClicks || 0,
-              forkPSI: s.forkPSI || 0,
-              shockPSI: s.shockPSI || 0,
-              forkHighPSI: s.forkHighPSI || 0,
-              forkLowPSI: s.forkLowPSI || 0,
+              forkType: s.forkType || 'air',
+              forkMainPSI: s.forkMainPSI !== undefined ? s.forkMainPSI : ((s as any).forkPSI || 0),
+              forkSecondaryPSI: s.forkSecondaryPSI !== undefined ? s.forkSecondaryPSI : ((s as any).forkHighPSI || 0),
               forkSpringRate: s.forkSpringRate || 0,
-              shockSpringRate: s.shockSpringRate || 0
+              forkLSR: s.forkLSR !== undefined ? s.forkLSR : ((s as any).forkRebound || (s as any).reboundClicks || 0),
+              forkHSR: s.forkHSR || 0,
+              forkLSC: s.forkLSC !== undefined ? s.forkLSC : ((s as any).lscClicks || 0),
+              forkHSC: s.forkHSC !== undefined ? s.forkHSC : ((s as any).hscClicks || 0),
+              shockType: s.shockType || 'air',
+              shockPSI: s.shockPSI || 0,
+              shockSpringRate: s.shockSpringRate || 0,
+              shockLSR: s.shockLSR !== undefined ? s.shockLSR : ((s as any).shockRebound || (s as any).reboundClicks || 0),
+              shockHSR: s.shockHSR || 0,
+              shockLSC: s.shockLSC !== undefined ? s.shockLSC : ((s as any).lscClicks || 0),
+              shockHSC: s.shockHSC !== undefined ? s.shockHSC : ((s as any).hscClicks || 0),
+              forkSAG: s.forkSAG !== undefined ? s.forkSAG : ((s as any).sagPercentage || 25),
+              shockSAG: s.shockSAG !== undefined ? s.shockSAG : ((s as any).sagPercentage || 25)
             }))
           }));
           setState({

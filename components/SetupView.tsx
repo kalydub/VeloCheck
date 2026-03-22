@@ -78,19 +78,23 @@ const SetupView: React.FC<SetupViewProps> = ({ bike, onAddSetup, onDeleteSetup }
     rideName: '',
     geometryModified: false,
     geometryDetails: '',
-    forkPSI: 0,
-    forkHighPSI: 0,
-    forkLowPSI: 0,
+    forkType: 'air',
+    forkMainPSI: 0,
+    forkSecondaryPSI: 0,
     forkSpringRate: 0,
-    forkRebound: 0,
+    forkLSR: 0,
+    forkHSR: 0,
     forkLSC: 0,
     forkHSC: 0,
+    shockType: 'air',
     shockPSI: 0,
     shockSpringRate: 0,
-    shockRebound: 0,
+    shockLSR: 0,
+    shockHSR: 0,
     shockLSC: 0,
     shockHSC: 0,
-    sagPercentage: 25,
+    forkSAG: 25,
+    shockSAG: 25,
     comments: ''
   });
 
@@ -133,12 +137,14 @@ const SetupView: React.FC<SetupViewProps> = ({ bike, onAddSetup, onDeleteSetup }
     if (!aiResult) return;
     setNewSetup(prev => ({
       ...prev,
-      forkPSI: aiResult.forkPSI,
+      forkMainPSI: aiResult.forkPSI,
       shockPSI: aiResult.shockPSI,
-      forkRebound: aiResult.rebound,
+      forkLSR: aiResult.rebound,
+      forkHSR: Math.max(0, aiResult.rebound - 2),
       forkLSC: aiResult.lsc,
       forkHSC: aiResult.hsc,
-      shockRebound: aiResult.rebound + 2, // Slight variation for shock as example
+      shockLSR: aiResult.rebound + 2,
+      shockHSR: aiResult.rebound,
       shockLSC: aiResult.lsc,
       shockHSC: aiResult.hsc
     }));
@@ -159,19 +165,23 @@ const SetupView: React.FC<SetupViewProps> = ({ bike, onAddSetup, onDeleteSetup }
       rideName: '',
       geometryModified: false,
       geometryDetails: '',
-      forkPSI: 0,
-      forkHighPSI: 0,
-      forkLowPSI: 0,
+      forkType: 'air',
+      forkMainPSI: 0,
+      forkSecondaryPSI: 0,
       forkSpringRate: 0,
-      forkRebound: 0,
+      forkLSR: 0,
+      forkHSR: 0,
       forkLSC: 0,
       forkHSC: 0,
+      shockType: 'air',
       shockPSI: 0,
       shockSpringRate: 0,
-      shockRebound: 0,
+      shockLSR: 0,
+      shockHSR: 0,
       shockLSC: 0,
       shockHSC: 0,
-      sagPercentage: 25,
+      forkSAG: 25,
+      shockSAG: 25,
       comments: ''
     });
   };
@@ -437,65 +447,134 @@ const SetupView: React.FC<SetupViewProps> = ({ bike, onAddSetup, onDeleteSetup }
                 </h4>
 
                 {/* Fourche Section */}
-                <div className="space-y-4 border-b border-white/5 pb-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-1.5 h-4 bg-indigo-500 rounded-full" />
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">Fourche</span>
+                <div className="space-y-6 border-b border-white/5 pb-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-4 bg-indigo-500 rounded-full" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">Fourche</span>
+                    </div>
+                    <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => setNewSetup(prev => ({ ...prev, forkType: 'air' }))}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${newSetup.forkType === 'air' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                      >
+                        AIR
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewSetup(prev => ({ ...prev, forkType: 'coil' }))}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${newSetup.forkType === 'coil' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                      >
+                        RESSORT
+                      </button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="space-y-1">
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase">PSI (Principal)</label>
-                      <input type="number" value={newSetup.forkPSI || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkPSI: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm" placeholder="PSI" />
+
+                  {newSetup.forkType === 'air' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase">PSI (Chambre Principale)</label>
+                        <input type="number" value={newSetup.forkMainPSI || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkMainPSI: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 focus:outline-none transition-colors" placeholder="PSI" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase">PSI (Chambre Secondaire)</label>
+                        <input type="number" value={newSetup.forkSecondaryPSI || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkSecondaryPSI: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 focus:outline-none transition-colors" placeholder="PSI" />
+                      </div>
                     </div>
+                  ) : (
                     <div className="space-y-1">
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase">PSI Haut</label>
-                      <input type="number" value={newSetup.forkHighPSI || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkHighPSI: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm" placeholder="PSI H" />
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase">TAR (LBS/IN)</label>
+                      <input type="number" value={newSetup.forkSpringRate || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkSpringRate: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-indigo-400 text-lg font-black focus:border-indigo-500 focus:outline-none transition-colors" placeholder="Ex: 450" />
                     </div>
-                    <div className="space-y-1">
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase">PSI Bas</label>
-                      <input type="number" value={newSetup.forkLowPSI || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkLowPSI: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm" placeholder="PSI B" />
+                  )}
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest">Compression</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <span className="block text-[8px] text-slate-600 font-bold uppercase text-center">Basse V.</span>
+                            <input type="number" value={newSetup.forkLSC || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkLSC: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-center text-blue-400 font-bold" />
+                          </div>
+                          <div className="space-y-1">
+                            <span className="block text-[8px] text-slate-600 font-bold uppercase text-center">Haute V.</span>
+                            <input type="number" value={newSetup.forkHSC || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkHSC: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-center text-purple-400 font-bold" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest">Rebond</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <span className="block text-[8px] text-slate-600 font-bold uppercase text-center">Basse V.</span>
+                            <input type="number" value={newSetup.forkLSR || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkLSR: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-center text-emerald-400 font-bold" />
+                          </div>
+                          <div className="space-y-1">
+                            <span className="block text-[8px] text-slate-600 font-bold uppercase text-center">Haute V.</span>
+                            <input type="number" value={newSetup.forkHSR || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkHSR: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-center text-emerald-500 font-bold" />
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase">Ressort</label>
-                      <input type="number" value={newSetup.forkSpringRate || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkSpringRate: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-indigo-400 text-sm font-bold" placeholder="lbs/in" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase text-center">Rebond</label>
-                      <input type="number" value={newSetup.forkRebound || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkRebound: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-center text-emerald-400 font-bold" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase text-center">LSC</label>
-                      <input type="number" value={newSetup.forkLSC || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkLSC: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-center text-blue-400 font-bold" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase text-center">HSC</label>
-                      <input type="number" value={newSetup.forkHSC || ''} onChange={e => setNewSetup(prev => ({ ...prev, forkHSC: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-center text-purple-400 font-bold" />
+                    
+                    <div className="space-y-3 pt-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">SAG Fourche (%)</label>
+                        <span className="text-xs font-black text-indigo-400 bg-indigo-600/10 px-2 py-0.5 rounded-full border border-indigo-500/20">{newSetup.forkSAG}%</span>
+                      </div>
+                      <input 
+                        type="range" min="10" max="30" step="1" 
+                        value={newSetup.forkSAG}
+                        onChange={e => setNewSetup(prev => ({ ...prev, forkSAG: parseInt(e.target.value) }))}
+                        className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* Amortisseur Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-1.5 h-4 bg-purple-500 rounded-full" />
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">Amortisseur</span>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-4 bg-purple-500 rounded-full" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">Amortisseur</span>
+                    </div>
+                    <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => setNewSetup(prev => ({ ...prev, shockType: 'air' }))}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${newSetup.shockType === 'air' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                      >
+                        AIR
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewSetup(prev => ({ ...prev, shockType: 'coil' }))}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${newSetup.shockType === 'coil' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                      >
+                        RESSORT
+                      </button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+
+                  {newSetup.shockType === 'air' ? (
                     <div className="space-y-1">
                       <label className="block text-[9px] font-bold text-slate-500 uppercase">PSI</label>
-                      <input type="number" value={newSetup.shockPSI || ''} onChange={e => setNewSetup(prev => ({ ...prev, shockPSI: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm" placeholder="PSI" />
+                      <input type="number" value={newSetup.shockPSI || ''} onChange={e => setNewSetup(prev => ({ ...prev, shockPSI: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-purple-500 focus:outline-none transition-colors" placeholder="PSI" />
                     </div>
+                  ) : (
                     <div className="space-y-1">
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase">Ressort</label>
-                      <input type="number" value={newSetup.shockSpringRate || ''} onChange={e => setNewSetup(prev => ({ ...prev, shockSpringRate: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-indigo-400 text-sm font-bold" placeholder="lbs/in" />
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase">TAR (LBS/IN)</label>
+                      <input type="number" value={newSetup.shockSpringRate || ''} onChange={e => setNewSetup(prev => ({ ...prev, shockSpringRate: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-indigo-400 text-lg font-black focus:border-purple-500 focus:outline-none transition-colors" placeholder="Ex: 450" />
                     </div>
-                  </div>
+                  )}
+
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label className="block text-[9px] font-bold text-slate-500 uppercase text-center">Rebond</label>
-                      <input type="number" value={newSetup.shockRebound || ''} onChange={e => setNewSetup(prev => ({ ...prev, shockRebound: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-center text-emerald-400 font-bold" />
+                      <input type="number" value={newSetup.shockLSR || ''} onChange={e => setNewSetup(prev => ({ ...prev, shockLSR: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-center text-emerald-400 font-bold" />
                     </div>
                     <div className="space-y-1">
                       <label className="block text-[9px] font-bold text-slate-500 uppercase text-center">LSC</label>
@@ -506,20 +585,21 @@ const SetupView: React.FC<SetupViewProps> = ({ bike, onAddSetup, onDeleteSetup }
                       <input type="number" value={newSetup.shockHSC || ''} onChange={e => setNewSetup(prev => ({ ...prev, shockHSC: parseInt(e.target.value) }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-center text-purple-400 font-bold" />
                     </div>
                   </div>
+
+                  <div className="space-y-3 pt-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">SAG Amortisseur (%)</label>
+                      <span className="text-xs font-black text-purple-400 bg-purple-600/10 px-2 py-0.5 rounded-full border border-purple-500/20">{newSetup.shockSAG}%</span>
+                    </div>
+                    <input 
+                      type="range" min="20" max="40" step="1" 
+                      value={newSetup.shockSAG}
+                      onChange={e => setNewSetup(prev => ({ ...prev, shockSAG: parseInt(e.target.value) }))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500" 
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-white/5">
-                   <div className="flex justify-between items-center">
-                     <label className="text-[10px] font-bold text-slate-500 uppercase">SAG Ciblé (%)</label>
-                     <span className="text-sm font-black text-indigo-400 bg-indigo-600/10 px-3 py-1 rounded-full border border-indigo-500/20">{newSetup.sagPercentage}%</span>
-                   </div>
-                   <input 
-                    type="range" min="15" max="40" step="1" 
-                    value={newSetup.sagPercentage}
-                    onChange={e => setNewSetup(prev => ({ ...prev, sagPercentage: parseInt(e.target.value) }))}
-                    className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
-                  />
-                </div>
               </div>
             </div>
 
@@ -615,51 +695,63 @@ const SetupView: React.FC<SetupViewProps> = ({ bike, onAddSetup, onDeleteSetup }
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
-                             <span className="text-[10px] text-indigo-400 font-bold uppercase">Fourche</span>
+                             <span className="text-[10px] text-indigo-400 font-bold uppercase">Fourche ({setup.forkType})</span>
                              <div className="flex gap-2">
-                               <span className="text-xs font-black text-white">{setup.forkPSI} <small className="text-[10px] text-slate-500 font-normal">psi</small></span>
-                               {setup.forkSpringRate ? <span className="text-xs font-black text-indigo-500">{setup.forkSpringRate} <small className="text-[10px] text-slate-500 font-normal">lbs</small></span> : null}
+                               {setup.forkType === 'air' ? (
+                                 <>
+                                   <span className="text-xs font-black text-white">{setup.forkMainPSI} <small className="text-[10px] text-slate-500 font-normal">psi</small></span>
+                                   {setup.forkSecondaryPSI ? <span className="text-xs font-black text-indigo-300">{setup.forkSecondaryPSI} <small className="text-[10px] text-slate-500 font-normal">psi (S)</small></span> : null}
+                                 </>
+                               ) : (
+                                 <span className="text-xs font-black text-indigo-500">{setup.forkSpringRate} <small className="text-[10px] text-slate-500 font-normal">lbs</small></span>
+                               )}
                              </div>
                           </div>
-                          {(setup.forkHighPSI || setup.forkLowPSI) && (
-                            <div className="flex gap-4 text-[9px] text-slate-400 font-bold pl-2">
-                              {setup.forkHighPSI ? <span>HAUT: {setup.forkHighPSI}</span> : null}
-                              {setup.forkLowPSI ? <span>BAS: {setup.forkLowPSI}</span> : null}
-                            </div>
-                          )}
                         </div>
                         <div className="flex justify-between items-center border-t border-white/5 pt-2">
-                           <span className="text-[10px] text-purple-400 font-bold uppercase">Amortisseur</span>
+                           <span className="text-[10px] text-purple-400 font-bold uppercase">Amortisseur ({setup.shockType})</span>
                            <div className="flex gap-2">
-                             <span className="text-xs font-black text-white">{setup.shockPSI} <small className="text-[10px] text-slate-500 font-normal">psi</small></span>
-                             {setup.shockSpringRate ? <span className="text-xs font-black text-indigo-500">{setup.shockSpringRate} <small className="text-[10px] text-slate-500 font-normal">lbs</small></span> : null}
+                             {setup.shockType === 'air' ? (
+                               <span className="text-xs font-black text-white">{setup.shockPSI} <small className="text-[10px] text-slate-500 font-normal">psi</small></span>
+                             ) : (
+                               <span className="text-xs font-black text-indigo-500">{setup.shockSpringRate} <small className="text-[10px] text-slate-500 font-normal">lbs</small></span>
+                             )}
                            </div>
                         </div>
                       </div>
                       <div className="pt-2 flex justify-between items-center border-t border-white/5">
-                         <span className="text-[10px] text-slate-500 uppercase font-black">SAG</span>
-                         <span className="text-sm font-black text-white">{setup.sagPercentage}%</span>
+                         <div className="flex flex-col">
+                           <span className="text-[8px] text-slate-500 uppercase font-black">SAG F</span>
+                           <span className="text-xs font-black text-white">{setup.forkSAG}%</span>
+                         </div>
+                         <div className="flex flex-col items-end">
+                           <span className="text-[8px] text-slate-500 uppercase font-black">SAG A</span>
+                           <span className="text-xs font-black text-white">{setup.shockSAG}%</span>
+                         </div>
                       </div>
                     </div>
 
                     <div className="flex-1 bg-slate-900/80 p-6 rounded-3xl border border-white/5 space-y-4 shadow-inner">
                       <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest border-b border-white/5 pb-3 text-center">Clicks Hydraulique</div>
                       <div className="space-y-4">
-                        <div className="grid grid-cols-4 items-center gap-2">
+                        <div className="grid grid-cols-5 items-center gap-1.5">
                           <span className="text-[9px] font-bold text-slate-500 uppercase">F</span>
-                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-emerald-400 text-center">{setup.forkRebound}</div>
-                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-blue-400 text-center">{setup.forkLSC}</div>
-                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-purple-400 text-center">{setup.forkHSC}</div>
+                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-emerald-400 text-center" title="LSR">{setup.forkLSR}</div>
+                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-emerald-600 text-center" title="HSR">{setup.forkHSR}</div>
+                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-blue-400 text-center" title="LSC">{setup.forkLSC}</div>
+                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-purple-400 text-center" title="HSC">{setup.forkHSC}</div>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-2">
+                        <div className="grid grid-cols-5 items-center gap-1.5">
                           <span className="text-[9px] font-bold text-slate-500 uppercase">A</span>
-                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-emerald-400 text-center">{setup.shockRebound}</div>
-                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-blue-400 text-center">{setup.shockLSC}</div>
-                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-purple-400 text-center">{setup.shockHSC}</div>
+                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-emerald-400 text-center" title="LSR">{setup.shockLSR}</div>
+                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-emerald-600 text-center" title="HSR">{setup.shockHSR}</div>
+                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-blue-400 text-center" title="LSC">{setup.shockLSC}</div>
+                          <div className="bg-slate-800 py-1 rounded-lg text-xs font-black text-purple-400 text-center" title="HSC">{setup.shockHSC}</div>
                         </div>
-                        <div className="flex justify-around text-[8px] text-slate-600 font-bold pt-1 uppercase">
+                        <div className="flex justify-between text-[7px] text-slate-600 font-bold pt-1 uppercase px-1">
                           <span className="invisible">F</span>
-                          <span>Reb</span>
+                          <span>LSR</span>
+                          <span>HSR</span>
                           <span>LSC</span>
                           <span>HSC</span>
                         </div>
