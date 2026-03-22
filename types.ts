@@ -39,11 +39,18 @@ export interface BikeSetup {
   geometryModified: boolean;
   geometryDetails?: string;
   forkPSI: number;
+  forkHighPSI?: number;
+  forkLowPSI?: number;
+  forkSpringRate?: number;
+  forkRebound: number;
+  forkLSC: number;
+  forkHSC: number;
   shockPSI: number;
+  shockSpringRate?: number;
+  shockRebound: number;
+  shockLSC: number;
+  shockHSC: number;
   sagPercentage: number;
-  reboundClicks: number;
-  lscClicks: number;
-  hscClicks: number;
   comments: string;
 }
 

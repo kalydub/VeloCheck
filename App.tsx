@@ -86,7 +86,21 @@ const App: React.FC = () => {
           // Migration : ensure setups exists
           const migratedBikes = bikes.map(b => ({
             ...b,
-            setups: b.setups || []
+            setups: (b.setups || []).map(s => ({
+              ...s,
+              forkRebound: s.forkRebound !== undefined ? s.forkRebound : (s as any).reboundClicks || 0,
+              forkLSC: s.forkLSC !== undefined ? s.forkLSC : (s as any).lscClicks || 0,
+              forkHSC: s.forkHSC !== undefined ? s.forkHSC : (s as any).hscClicks || 0,
+              shockRebound: s.shockRebound !== undefined ? s.shockRebound : (s as any).reboundClicks || 0,
+              shockLSC: s.shockLSC !== undefined ? s.shockLSC : (s as any).lscClicks || 0,
+              shockHSC: s.shockHSC !== undefined ? s.shockHSC : (s as any).hscClicks || 0,
+              forkPSI: s.forkPSI || 0,
+              shockPSI: s.shockPSI || 0,
+              forkHighPSI: s.forkHighPSI || 0,
+              forkLowPSI: s.forkLowPSI || 0,
+              forkSpringRate: s.forkSpringRate || 0,
+              shockSpringRate: s.shockSpringRate || 0
+            }))
           }));
           setState({
             bikes: migratedBikes,
