@@ -39,6 +39,11 @@ interface SetupViewProps {
 
 const LEXICON = [
   {
+    title: "Compression (Amortissement)",
+    description: "Contrôle la vitesse à laquelle la suspension s'enfonce lors d'un impact. Elle agit contre le ressort pour stabiliser le vélo.",
+    impact: "Plus de compression (fermé) = vélo plus réactif, plus stable au pédalage mais moins confortable. Moins de compression (ouvert) = plus de confort, plus de grip mais plus d'oscillations."
+  },
+  {
     title: "SAG (Enfoncement statique)",
     description: "Le pourcentage d'enfoncement de la suspension sous le poids du pilote équipé, en position de roulage. Un réglage de base se situe souvent entre 25% et 30%.",
     impact: "Trop de SAG = vélo mou, talonne facilement. Trop peu = manque d'adhérence, vélo nerveux."
