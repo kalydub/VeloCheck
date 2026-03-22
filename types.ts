@@ -30,6 +30,23 @@ export interface RideData {
   stravaId?: string;
 }
 
+export interface BikeSetup {
+  id: string;
+  date: string;
+  weather: 'dry' | 'wet';
+  rideName: string;
+  gpxPath?: string;
+  geometryModified: boolean;
+  geometryDetails?: string;
+  forkPSI: number;
+  shockPSI: number;
+  sagPercentage: number;
+  reboundClicks: number;
+  lscClicks: number;
+  hscClicks: number;
+  comments: string;
+}
+
 export interface BikeProfile {
   id: string;
   name: string;
@@ -39,6 +56,7 @@ export interface BikeProfile {
   image?: string; // base64 string
   components: ComponentStatus[];
   rides: RideData[];
+  setups: BikeSetup[];
   totalDistance: number;
   totalElevation: number;
 }

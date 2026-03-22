@@ -4,7 +4,7 @@ import {
   Bike, Upload, BarChart3, Settings2, Sparkles, Plus, Trash2,
   ChevronRight, RefreshCcw, AlertTriangle, X, Check, Camera,
   ArrowLeft, LayoutGrid, Download, FileDown, Save, Map as MapIcon,
-  ArrowUpDown, ArrowUp, ArrowDown
+  ArrowUpDown, ArrowUp, ArrowDown, Sliders
 } from 'lucide-react';
 import { AppState, BikeProfile, ComponentStatus, GpxAnalysisResult, RideData } from './types';
 import { DEFAULT_COMPONENTS } from './constants';
@@ -14,6 +14,7 @@ import { getMaintenanceAdvice } from './services/geminiService';
 import StatsView from './components/StatsView';
 import RideMap from './components/RideMap';
 import GlobalActivityMap from './components/GlobalActivityMap';
+import SetupView from './components/SetupView';
 import { db } from './db';
 
 import { Analytics } from "@vercel/analytics/react";
@@ -33,7 +34,7 @@ const App: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'settings' | 'garage' | 'stats'>('garage');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'settings' | 'garage' | 'stats' | 'setup'>('garage');
   const [isUploading, setIsUploading] = useState(false);
   const [editingRideId, setEditingRideId] = useState<string | null>(null);
   const [editingRideNameId, setEditingRideNameId] = useState<string | null>(null);
@@ -82,8 +83,13 @@ const App: React.FC = () => {
         const activeBikeIdConfig = await db.config.get('activeBikeId');
 
         if (bikes.length > 0) {
+          // Migration : ensure setups exists
+          const migratedBikes = bikes.map(b => ({
+            ...b,
+            setups: b.setups || []
+          }));
           setState({
-            bikes,
+            bikes: migratedBikes,
             activeBikeId: activeBikeIdConfig?.value || bikes[0].id
           });
         } else {
@@ -423,6 +429,7 @@ const App: React.FC = () => {
       image: newBikeData.image,
       components: [...DEFAULT_COMPONENTS],
       rides: [],
+      setups: [],
       totalDistance: 0,
       totalElevation: 0
     };
@@ -602,6 +609,21 @@ const App: React.FC = () => {
     }
   };
 
+  const handleAddSetup = (setup: any) => {
+    updateActiveBike(bike => ({
+      ...bike,
+      setups: [setup, ...(bike.setups || [])]
+    }));
+  };
+
+  const handleDeleteSetup = (id: string) => {
+    if (!confirm("Supprimer ce setup ?")) return;
+    updateActiveBike(bike => ({
+      ...bike,
+      setups: (bike.setups || []).filter(s => s.id !== id)
+    }));
+  };
+
   // Rediriger vers garage si aucun vélo
   useEffect(() => {
     if (state.bikes.length === 0) setActiveTab('garage');
@@ -656,6 +678,13 @@ const App: React.FC = () => {
               >
                 <Plus className="w-5 h-5" />
                 <span className="hidden md:block font-medium">Activités</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('setup')}
+                className={`flex items-center gap-3 p-3 rounded-lg transition-colors w-full ${activeTab === 'setup' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-400 hover:bg-slate-800'}`}
+              >
+                <Sliders className="w-5 h-5" />
+                <span className="hidden md:block font-medium">Set up du bike</span>
               </button>
               <button
                 onClick={() => setActiveTab('stats')}
@@ -966,6 +995,14 @@ const App: React.FC = () => {
                   </div>
                 </section>
               </div>
+            )}
+
+            {activeTab === 'setup' && (
+              <SetupView 
+                bike={activeBike} 
+                onAddSetup={handleAddSetup} 
+                onDeleteSetup={handleDeleteSetup} 
+              />
             )}
 
             {activeTab === 'stats' && (
