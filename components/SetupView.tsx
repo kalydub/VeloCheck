@@ -100,6 +100,8 @@ const SetupView: React.FC<SetupViewProps> = ({ bike, onAddSetup, onDeleteSetup }
     shockHSC: 0,
     forkSAG: 25,
     shockSAG: 25,
+    frontTirePSI: 0,
+    rearTirePSI: 0,
     comments: ''
   });
 
@@ -187,6 +189,8 @@ const SetupView: React.FC<SetupViewProps> = ({ bike, onAddSetup, onDeleteSetup }
       shockHSC: 0,
       forkSAG: 25,
       shockSAG: 25,
+      frontTirePSI: 0,
+      rearTirePSI: 0,
       comments: ''
     });
   };
@@ -443,6 +447,37 @@ const SetupView: React.FC<SetupViewProps> = ({ bike, onAddSetup, onDeleteSetup }
                       placeholder="Ex: Flip-chip Low, Angle set à 64°..."
                     />
                   )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-900/40 p-5 rounded-2xl border border-white/5 group hover:border-indigo-500/30 transition-all">
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Pneu AV (PSI)</label>
+                    <div className="relative">
+                      <Gauge className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500/50" />
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        value={newSetup.frontTirePSI || ''} 
+                        onChange={e => setNewSetup(prev => ({ ...prev, frontTirePSI: parseFloat(e.target.value) }))} 
+                        className="w-full bg-transparent border-none pl-6 text-white text-xl font-bold focus:outline-none" 
+                        placeholder="1.5" 
+                      />
+                    </div>
+                  </div>
+                  <div className="bg-slate-900/40 p-5 rounded-2xl border border-white/5 group hover:border-indigo-500/30 transition-all">
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Pneu AR (PSI)</label>
+                    <div className="relative">
+                      <Gauge className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500/50" />
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        value={newSetup.rearTirePSI || ''} 
+                        onChange={e => setNewSetup(prev => ({ ...prev, rearTirePSI: parseFloat(e.target.value) }))} 
+                        className="w-full bg-transparent border-none pl-6 text-white text-xl font-bold focus:outline-none" 
+                        placeholder="1.7" 
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -732,6 +767,16 @@ const SetupView: React.FC<SetupViewProps> = ({ bike, onAddSetup, onDeleteSetup }
                          <div className="flex flex-col items-end">
                            <span className="text-[8px] text-slate-500 uppercase font-black">SAG A</span>
                            <span className="text-xs font-black text-white">{setup.shockSAG}%</span>
+                         </div>
+                      </div>
+                      <div className="pt-2 flex justify-between items-center border-t border-white/5">
+                         <div className="flex flex-col">
+                           <span className="text-[8px] text-slate-500 uppercase font-black">Pneu AV</span>
+                           <span className="text-xs font-black text-indigo-400">{setup.frontTirePSI} <small className="text-[8px] text-slate-600">psi</small></span>
+                         </div>
+                         <div className="flex flex-col items-end">
+                           <span className="text-[8px] text-slate-500 uppercase font-black">Pneu AR</span>
+                           <span className="text-xs font-black text-indigo-400">{setup.rearTirePSI} <small className="text-[8px] text-slate-600">psi</small></span>
                          </div>
                       </div>
                     </div>

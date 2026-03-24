@@ -15,6 +15,7 @@ import StatsView from './components/StatsView';
 import RideMap from './components/RideMap';
 import GlobalActivityMap from './components/GlobalActivityMap';
 import SetupView from './components/SetupView';
+import AuthView from './components/AuthView';
 import { db } from './db';
 
 import { Analytics } from "@vercel/analytics/react";
@@ -25,6 +26,10 @@ import {
   isStravaConnected,
   disconnectStrava
 } from './services/stravaService';
+import { supabaseService } from './services/supabaseService';
+import { supabase } from './services/supabaseClient';
+import { User } from '@supabase/supabase-js';
+import { Cloud, CloudOff, CloudSync, LogIn, LogOut, Database } from 'lucide-react';
 
 
 const App: React.FC = () => {
@@ -33,6 +38,8 @@ const App: React.FC = () => {
     activeBikeId: null
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'settings' | 'garage' | 'stats' | 'setup'>('garage');
   const [isUploading, setIsUploading] = useState(false);
@@ -48,6 +55,8 @@ const App: React.FC = () => {
     field: 'date',
     direction: 'desc'
   });
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
 
   // Formulaire nouveau vélo
   const [isAddingBike, setIsAddingBike] = useState(false);
@@ -104,7 +113,9 @@ const App: React.FC = () => {
               shockLSC: s.shockLSC !== undefined ? s.shockLSC : ((s as any).lscClicks || 0),
               shockHSC: s.shockHSC !== undefined ? s.shockHSC : ((s as any).hscClicks || 0),
               forkSAG: s.forkSAG !== undefined ? s.forkSAG : ((s as any).sagPercentage || 25),
-              shockSAG: s.shockSAG !== undefined ? s.shockSAG : ((s as any).sagPercentage || 25)
+              shockSAG: s.shockSAG !== undefined ? s.shockSAG : ((s as any).sagPercentage || 25),
+              frontTirePSI: s.frontTirePSI || 0,
+              rearTirePSI: s.rearTirePSI || 0
             }))
           }));
           setState({
@@ -159,6 +170,95 @@ const App: React.FC = () => {
     };
     checkStrava();
   }, []);
+
+  // Supabase Auth & Session
+  useEffect(() => {
+    const initUser = async () => {
+      try {
+        const currentUser = await supabaseService.getUser();
+        setUser(currentUser);
+      } catch (e) {
+        console.warn("Erreur chargement utilisateur Supabase:", e);
+      }
+    };
+    initUser();
+
+    // Handle Auth Events & Redirects
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsResettingPassword(true);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword) return;
+    setIsLoading(true);
+    try {
+      await supabaseService.updatePassword(newPassword);
+      alert("Mot de passe mis à jour avec succès !");
+      setIsResettingPassword(false);
+    } catch (error: any) {
+      alert("Erreur: " + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCloudSync = async () => {
+    if (!user) return;
+    setIsSyncingCloud(true);
+    try {
+      await supabaseService.saveBikes(user.id, state.bikes);
+      alert("Données synchronisées avec succès sur le cloud !");
+    } catch (error) {
+      console.error("Erreur sync:", error);
+      alert("Erreur lors de la synchronisation cloud. Vérifiez que la table 'user_data' existe dans Supabase.");
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
+
+  const handleCloudLoad = async () => {
+    if (!user) return;
+    if (!confirm("Voulez-vous charger vos données depuis le cloud ? Cela remplacera vos données locales.")) return;
+    setIsSyncingCloud(true);
+    try {
+      const bikes = await supabaseService.loadBikes(user.id);
+      if (bikes) {
+        setState(prev => ({ ...prev, bikes, activeBikeId: bikes[0]?.id || null }));
+        alert("Données récupérées avec succès !");
+      } else {
+        alert("Aucune donnée trouvée sur le cloud pour cet utilisateur.");
+      }
+    } catch (error) {
+      console.error("Erreur chargement:", error);
+      alert("Erreur lors de la récupération cloud.");
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && state.bikes.length === 0 && !isLoading) {
+      const checkAndLoad = async (u: User) => {
+        try {
+          const bikes = await supabaseService.loadBikes(u.id);
+          if (bikes && bikes.length > 0) {
+            if (confirm("Des données ont été trouvées sur le cloud pour votre compte. Voulez-vous les restaurer ?")) {
+              setState(prev => ({ ...prev, bikes, activeBikeId: bikes[0]?.id || null }));
+            }
+          }
+        } catch (e) {
+          console.error("Échec de la détection automatique des données cloud:", e);
+        }
+      };
+      checkAndLoad(user);
+    }
+  }, [user, state.bikes.length, isLoading]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -658,6 +758,50 @@ const App: React.FC = () => {
         <p className="text-slate-400 font-medium animate-pulse">Chargement de votre garage haute performance...</p>
       </div>
     );
+  }
+
+  if (isResettingPassword) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 bg-[radial-gradient(circle_at_50%_0%,_#312e81_0%,_#020617_50%)]">
+        <div className="w-full max-w-md bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-[40px] p-8 md:p-12 shadow-2xl">
+          <div className="text-center mb-8">
+            <div className="bg-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center m-auto mb-4">
+               <Lock className="text-white w-6 h-6" />
+            </div>
+            <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Réinitialisation</h2>
+            <p className="text-slate-400 font-medium">Définissez votre nouveau mot de passe hautement sécurisé.</p>
+          </div>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Nouveau mot de passe</label>
+              <input 
+                type="password" 
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl py-4 px-6 text-white focus:outline-none focus:border-indigo-500 transition-all font-medium"
+                placeholder="••••••••"
+              />
+            </div>
+            <button 
+              onClick={handleUpdatePassword}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl py-4 font-black text-lg transition-all shadow-xl shadow-indigo-600/30 active:scale-95"
+            >
+              Mettre à jour
+            </button>
+            <button 
+              onClick={() => setIsResettingPassword(false)}
+              className="w-full text-slate-500 font-bold text-sm hover:text-slate-300 transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthView onAuthSuccess={(u) => setUser(u)} />;
   }
 
   return (
@@ -1513,6 +1657,78 @@ const App: React.FC = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Section Supabase Cloud */}
+                <section className="bg-slate-800/40 border border-indigo-500/20 rounded-3xl p-8 backdrop-blur-sm shadow-2xl overflow-hidden relative group">
+                  <div className="absolute -right-10 -top-10 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Cloud className="w-40 h-40 text-indigo-400" />
+                  </div>
+                  
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="bg-indigo-600/20 p-3 rounded-2xl text-indigo-400">
+                        <Cloud className="w-8 h-8" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-black text-white">Cloud Sync</h3>
+                        <p className="text-slate-400 font-medium">Sauvegardez votre garage sur Supabase</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-8">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-slate-900/60 rounded-2xl border border-indigo-500/10 gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white font-black text-xl shadow-inner">
+                            {user?.email?.[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-white font-bold text-lg">{user?.email}</p>
+                            <div className="flex items-center gap-1.5 text-green-400 text-xs font-black uppercase tracking-wider">
+                              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                              Session Active
+                            </div>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => supabaseService.signOut()}
+                          className="px-4 py-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl text-sm font-black transition-all border border-transparent hover:border-red-400/20"
+                        >
+                          Se déconnecter
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <button 
+                          onClick={handleCloudSync}
+                          disabled={isSyncingCloud}
+                          className="relative group/btn flex flex-col items-center justify-center gap-3 p-8 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-3xl font-black transition-all shadow-2xl shadow-indigo-600/20 hover:scale-[1.02] active:scale-95"
+                        >
+                          <div className="bg-white/10 p-3 rounded-2xl group-hover/btn:scale-110 transition-transform">
+                            {isSyncingCloud ? <RefreshCcw className="w-8 h-8 animate-spin" /> : <CloudSync className="w-8 h-8" />}
+                          </div>
+                          <div className="text-center">
+                            <span className="block text-lg">Sauvegarder</span>
+                            <span className="block text-indigo-200 text-xs font-medium uppercase tracking-widest mt-1">Pousser vers le cloud</span>
+                          </div>
+                        </button>
+                        
+                        <button 
+                          onClick={handleCloudLoad}
+                          disabled={isSyncingCloud}
+                          className="relative group/btn flex flex-col items-center justify-center gap-3 p-8 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white rounded-3xl font-black transition-all border border-slate-700 hover:border-indigo-500/30 hover:scale-[1.02] active:scale-95"
+                        >
+                          <div className="bg-slate-700 p-3 rounded-2xl group-hover/btn:scale-110 transition-transform">
+                            {isSyncingCloud ? <RefreshCcw className="w-8 h-8 animate-spin" /> : <Database className="w-8 h-8" />}
+                          </div>
+                          <div className="text-center">
+                            <span className="block text-lg">Restaurer</span>
+                            <span className="block text-slate-400 text-xs font-medium uppercase tracking-widest mt-1">Récupérer du cloud</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </section>
               </div>
             )}
           </div>
