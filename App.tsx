@@ -865,6 +865,16 @@ const App: React.FC = () => {
               </button>
             </>
           )}
+
+          <div className="mt-auto md:pt-4 md:border-t md:border-slate-800">
+            <button
+              onClick={() => supabaseService.signOut()}
+              className="flex items-center gap-3 p-3 rounded-lg transition-colors w-full text-slate-500 hover:text-red-400 hover:bg-red-400/10"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="hidden md:block font-medium">Déconnexion</span>
+            </button>
+          </div>
         </div>
       </nav>
 
