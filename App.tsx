@@ -810,11 +810,21 @@ const App: React.FC = () => {
 
       {/* Sidebar Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 md:top-0 md:left-0 md:bottom-0 md:w-64 bg-slate-900 border-t md:border-r border-slate-800 z-50">
-        <div className="hidden md:flex p-6 items-center gap-3 border-b border-slate-800 mb-6">
-          <div className="bg-indigo-600 p-2 rounded-lg text-white">
-            <Bike className="w-6 h-6" />
+        <div className="hidden md:flex flex-col p-6 border-b border-slate-800 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-indigo-600 p-2 rounded-lg text-white">
+              <Bike className="w-6 h-6" />
+            </div>
+            <h1 className="text-xl font-bold tracking-tight text-white">VeloCheck</h1>
           </div>
-          <h1 className="text-xl font-bold tracking-tight">VeloCheck</h1>
+          
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest ${user ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+             <div className="relative flex h-2 w-2">
+               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${user ? 'bg-green-400' : 'bg-red-400'}`}></span>
+               <span className={`relative inline-flex rounded-full h-2 w-2 ${user ? 'bg-green-500' : 'bg-red-500'}`}></span>
+             </div>
+             {isSyncingCloud ? 'Synchronisation...' : user ? 'Cloud Connecté' : 'Hors Ligne'}
+          </div>
         </div>
 
         <div className="flex md:flex-col justify-around md:justify-start p-2 md:p-4 gap-2">
