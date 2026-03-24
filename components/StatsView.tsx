@@ -101,7 +101,7 @@ const StatsView: React.FC<StatsViewProps> = ({ bike }) => {
                     <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                         <TrendingUp className="text-indigo-400 w-5 h-5" /> Évolution du kilométrage
                     </h3>
-                    <div className="h-64 w-full">
+                    <div className="h-64 w-full min-w-0">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={monthlyData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
@@ -122,7 +122,7 @@ const StatsView: React.FC<StatsViewProps> = ({ bike }) => {
                     <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                         <DollarSign className="text-emerald-400 w-5 h-5" /> Répartition des dépenses
                     </h3>
-                    <div className="h-64 w-full flex items-center">
+                    <div className="h-64 w-full flex items-center min-w-0">
                         {costPerComponent.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
