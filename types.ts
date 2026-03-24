@@ -55,8 +55,8 @@ export interface BikeSetup {
   shockHSC: number;
   forkSAG: number;
   shockSAG: number;
-  frontTirePSI: number;
-  rearTirePSI: number;
+  frontTireBar: number;
+  rearTireBar: number;
   comments: string;
 }
 

@@ -114,8 +114,8 @@ const App: React.FC = () => {
               shockHSC: s.shockHSC !== undefined ? s.shockHSC : ((s as any).hscClicks || 0),
               forkSAG: s.forkSAG !== undefined ? s.forkSAG : ((s as any).sagPercentage || 25),
               shockSAG: s.shockSAG !== undefined ? s.shockSAG : ((s as any).sagPercentage || 25),
-              frontTirePSI: s.frontTirePSI || 0,
-              rearTirePSI: s.rearTirePSI || 0
+              frontTireBar: s.frontTireBar || (s as any).frontTirePSI || 0,
+              rearTireBar: s.rearTireBar || (s as any).rearTirePSI || 0
             }))
           }));
           setState({
